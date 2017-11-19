@@ -18,4 +18,4 @@
 */
 package com.bwsw.kafka.reader.entities
 
-case class TopicInfo(topic: String) extends CheckpointInfo
+case class TopicInfo(topic: String)

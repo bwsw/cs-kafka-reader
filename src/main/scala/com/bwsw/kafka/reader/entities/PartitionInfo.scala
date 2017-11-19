@@ -18,4 +18,4 @@
 */
 package com.bwsw.kafka.reader.entities
 
-case class TopicPartitionInfo(topic: String, partition: Int, offset: Long) extends CheckpointInfo
+case class PartitionInfo(partition: Int, offset: Long)
