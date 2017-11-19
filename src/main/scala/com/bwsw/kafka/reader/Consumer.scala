@@ -20,8 +20,8 @@ package com.bwsw.kafka.reader
 
 import java.util.Properties
 
-import com.bwsw.kafka.reader.entities.{CheckpointInfo, CheckpointInfoList}
-import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer}
+import com.bwsw.kafka.reader.entities._
+import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.slf4j.LoggerFactory
 
@@ -34,7 +34,7 @@ class Consumer[K,V](brokers: String,
                     autoCommitInterval: Int = 5000) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val props = createConsumerConfig()
-  protected val consumer: org.apache.kafka.clients.consumer.Consumer[String, String] = new KafkaConsumer[String, String](props)
+  protected val consumer: org.apache.kafka.clients.consumer.Consumer[K, V] = new KafkaConsumer[K, V](props)
 
   private def createConsumerConfig(): Properties = {
     val props = new Properties()
@@ -48,26 +48,48 @@ class Consumer[K,V](brokers: String,
     props
   }
 
-  def subscribe(checkpointInfoList: CheckpointInfoList): Unit = {
-    consumer.subscribe(checkpointInfoList.infoList.map(_.topicInfo.topic).asJavaCollection)
+  def assign(checkpointInfoList: CheckpointInfoList): Unit = {
+    checkpointInfoList match {
+      case x: TopicInfoList =>
+        val topicPartitions = consumer.listTopics().asScala.toList.collect {
+          case (consumerTopic, partitionInfoList) if x.entities.map(_.topic).contains(consumerTopic) =>
+            partitionInfoList.asScala.map { partitionInfo =>
+              new TopicPartition(consumerTopic, partitionInfo.partition())
+            }.toList
+        }.flatten.asJavaCollection
+        if (!topicPartitions.isEmpty) {
+          consumer.assign(topicPartitions)
+          consumer.seekToBeginning(topicPartitions)
+        } else {
+          throw new Exception(s"Topics: $x are not exists")
+        }
+      case x: TopicPartitionInfoList =>
+        val topicPartitionsWithOffsets = x.entities.map {
+          case TopicPartitionInfo(topic, partition, offset) =>
+            (new TopicPartition(topic, partition), offset)
+        }
+        consumer.assign(
+          topicPartitionsWithOffsets.map {
+            case (topicPartitions, offset) => topicPartitions
+          }.asJavaCollection
+        )
+        topicPartitionsWithOffsets.foreach {
+          case (topicPartition, offset) => consumer.seek(topicPartition, offset)
+        }
+    }
+  }
+  def poll(): ConsumerRecords[K,V] = {
+    consumer.poll(pollTimeout)
+  }
+  def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+    val topicPartitionsWithMetadata = topicPartitionInfoList.entities.map { topicPartitionInfo =>
+      new TopicPartition(topicPartitionInfo.topic, topicPartitionInfo.partition) -> new OffsetAndMetadata(topicPartitionInfo.offset, "")
+    }.toMap.asJava
+    consumer.commitSync(topicPartitionsWithMetadata)
   }
 
-  def assign(checkpointInfoList: CheckpointInfoList): Unit = {
-    val topicPartitionsWithOffsets = checkpointInfoList.infoList.flatMap { checkpointInfo =>
-      checkpointInfo.partitionInfoList.map { partitionInfo =>
-        (new TopicPartition(checkpointInfo.topicInfo.topic, partitionInfo.partition), partitionInfo.offset)
-      }
-    }
-    consumer.assign(
-      topicPartitionsWithOffsets.map {
-        case (topicPartition, offset) => topicPartition
-      }.asJavaCollection
-    )
-    topicPartitionsWithOffsets.foreach {
-      case (topicPartition, offset) => consumer.seek(topicPartition, offset) }
+  def close(): Unit = {
+    consumer.close()
   }
-  def poll(): ConsumerRecords[K,V] = ???
-  def commit(checkpointInfoList: CheckpointInfoList): Unit = {}
-  def close(): Unit = {}
 
 }

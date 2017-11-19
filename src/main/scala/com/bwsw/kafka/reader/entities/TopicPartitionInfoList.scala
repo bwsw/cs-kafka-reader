@@ -18,4 +18,4 @@
 */
 package com.bwsw.kafka.reader.entities
 
-case class CheckpointInfo(topicInfo: TopicInfo, partitionInfoList: List[PartitionInfo])
+case class TopicPartitionInfoList(entities: List[TopicPartitionInfo]) extends CheckpointInfoList
