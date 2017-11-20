@@ -27,6 +27,9 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
+/**
+  * Class is responsible for events extraction from Kafka topic
+  */
 class Consumer[K,V](brokers: String,
                     groupId: String,
                     pollTimeout: Int = 500,
@@ -48,6 +51,12 @@ class Consumer[K,V](brokers: String,
     props
   }
 
+  /**
+    * Assign to topic partitions and seek offsets
+    *
+    * @param checkpointInfoList entity which implement CheckpointInfoList and
+    *                           include topics or topics, partitions and offsets.
+    */
   def assign(checkpointInfoList: CheckpointInfoList): Unit = {
     checkpointInfoList match {
       case x: TopicInfoList =>
@@ -61,7 +70,7 @@ class Consumer[K,V](brokers: String,
           consumer.assign(topicPartitions)
           consumer.seekToBeginning(topicPartitions)
         } else {
-          throw new Exception(s"Topics: $x are not exists")
+          throw new Exception(s"No one of topics: $x are not exists")
         }
       case x: TopicPartitionInfoList =>
         val topicPartitionsWithOffsets = x.entities.map {
@@ -78,9 +87,17 @@ class Consumer[K,V](brokers: String,
         }
     }
   }
+
+  /**
+    * Retrieve a ConsumerRecords
+    */
   def poll(): ConsumerRecords[K,V] = {
     consumer.poll(pollTimeout)
   }
+
+  /**
+    * Commit offsets for topic partitions
+    */
   def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
     val topicPartitionsWithMetadata = topicPartitionInfoList.entities.map { topicPartitionInfo =>
       new TopicPartition(topicPartitionInfo.topic, topicPartitionInfo.partition) -> new OffsetAndMetadata(topicPartitionInfo.offset, "")
@@ -88,6 +105,9 @@ class Consumer[K,V](brokers: String,
     consumer.commitSync(topicPartitionsWithMetadata)
   }
 
+  /**
+    * Close the consumer
+    */
   def close(): Unit = {
     consumer.close()
   }
