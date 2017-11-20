@@ -28,11 +28,14 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 
 /**
-  * Class is responsible for events extraction from Kafka topic
+  * Class is responsible for events extraction from Kafka.
+  * It is a wrapper of [[org.apache.kafka.clients.consumer.KafkaConsumer]]
+  *
   */
 class Consumer[K,V](brokers: String,
                     groupId: String,
                     pollTimeout: Int = 500,
+                    autoOffsetReset: String = "earliest",
                     enableAutoCommit: Boolean = false,
                     autoCommitInterval: Int = 5000) {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -43,6 +46,7 @@ class Consumer[K,V](brokers: String,
     val props = new Properties()
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
     props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId)
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset)
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit.toString)
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, autoCommitInterval.toString)
     props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "30000")
@@ -54,49 +58,51 @@ class Consumer[K,V](brokers: String,
   /**
     * Assign to topic partitions and seek offsets
     *
-    * @param checkpointInfoList entity which implement CheckpointInfoList and
-    *                           include topics or topics, partitions and offsets.
+    * @param topicPartitionInfoList entity which include topics, partitions and offsets.
     */
-  def assign(checkpointInfoList: CheckpointInfoList): Unit = {
-    checkpointInfoList match {
-      case x: TopicInfoList =>
-        val topicPartitions = consumer.listTopics().asScala.toList.collect {
-          case (consumerTopic, partitionInfoList) if x.entities.map(_.topic).contains(consumerTopic) =>
-            partitionInfoList.asScala.map { partitionInfo =>
-              new TopicPartition(consumerTopic, partitionInfo.partition())
-            }.toList
-        }.flatten.asJavaCollection
-        if (!topicPartitions.isEmpty) {
-          consumer.assign(topicPartitions)
-          consumer.seekToBeginning(topicPartitions)
-        } else {
-          throw new Exception(s"No one of topics: $x are not exists")
-        }
-      case x: TopicPartitionInfoList =>
-        val topicPartitionsWithOffsets = x.entities.map {
-          case TopicPartitionInfo(topic, partition, offset) =>
-            (new TopicPartition(topic, partition), offset)
-        }
-        consumer.assign(
-          topicPartitionsWithOffsets.map {
-            case (topicPartitions, offset) => topicPartitions
-          }.asJavaCollection
-        )
-        topicPartitionsWithOffsets.foreach {
-          case (topicPartition, offset) => consumer.seek(topicPartition, offset)
-        }
+  def assign(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+    val topicPartitionsWithOffsets = topicPartitionInfoList.entities.map {
+      case TopicPartitionInfo(topic, partition, offset) =>
+        (new TopicPartition(topic, partition), offset)
+    }
+    consumer.assign(
+      topicPartitionsWithOffsets.map {
+        case (topicPartitions, offset) => topicPartitions
+      }.asJavaCollection
+    )
+    topicPartitionsWithOffsets.foreach {
+      case (topicPartition, offset) => consumer.seek(topicPartition, offset)
     }
   }
 
   /**
-    * Retrieve a ConsumerRecords
+    * Assign to topic partitions
+    *
+    * @param topicInfoList entity which include topics
+    */
+  def assign(topicInfoList: TopicInfoList): Unit = {
+    val topicPartitions = consumer.listTopics().asScala.toList.collect {
+      case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
+        partitionInfoList.asScala.map { partitionInfo =>
+          new TopicPartition(consumerTopic, partitionInfo.partition())
+        }.toList
+    }.flatten.asJavaCollection
+    if (!topicPartitions.isEmpty) {
+      consumer.assign(topicPartitions)
+    } else {
+      throw new NoSuchElementException(s"No one of topics: $topicInfoList are not exists")
+    }
+  }
+
+  /**
+    * @see [[org.apache.kafka.clients.consumer.KafkaConsumer#poll(timeout: Long)]]
     */
   def poll(): ConsumerRecords[K,V] = {
     consumer.poll(pollTimeout)
   }
 
   /**
-    * Commit offsets for topic partitions
+    * Commit the specified offsets for the specified list of topics and partitions.
     */
   def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
     val topicPartitionsWithMetadata = topicPartitionInfoList.entities.map { topicPartitionInfo =>
