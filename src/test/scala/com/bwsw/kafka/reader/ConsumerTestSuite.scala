@@ -108,20 +108,24 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
 
   "poll" should "retrieve ConsumerRecord from specified Kafka topic partition" in { fixture =>
     val topicPartition = fixture.topicPartitionInfoList.entities.head
-    val expectedRecord = new ConsumerRecord[String, String](
-      topicPartition.topic,
-      topicPartition.partition,
-      topicPartition.offset,
-      "key",
-      "value"
-    )
+    val expectedRecords = fixture.topicPartitionInfoList.entities.map { x =>
+      new ConsumerRecord[String, String](
+        x.topic,
+        x.partition,
+        x.offset,
+        "key",
+        "value"
+      )
+    }.toSet
 
     fixture.testConsumer.assignWithOffsets(fixture.topicPartitionInfoList)
-    fixture.mockConsumer.addRecord(expectedRecord)
+    expectedRecords.foreach { record =>
+      fixture.mockConsumer.addRecord(record)
+    }
 
-    val actualRecord = fixture.testConsumer.poll().asScala.toList.head
+    val actualRecords = fixture.testConsumer.poll().asScala.toSet
 
-    assert(actualRecord == expectedRecord)
+    assert(actualRecords == expectedRecords)
 
     fixture.mockConsumer.close()
   }
