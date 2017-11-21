@@ -21,21 +21,30 @@ package com.bwsw.kafka.reader
 import com.bwsw.kafka.reader.entities._
 import org.apache.kafka.clients.consumer._
 import org.apache.kafka.common.{Node, PartitionInfo, TopicPartition}
-import org.scalatest.{FlatSpec, Matchers, Outcome, fixture}
+import org.scalatest._
 
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-class ConsumerTestSuite extends fixture.FlatSpec {
+class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
 
   case class FixtureParam(mockConsumer: MockConsumer[String, String],
                           testConsumer: Consumer[String, String],
+                          topicInfoList: TopicInfoList,
                           topicPartitionInfoList: TopicPartitionInfoList)
 
   def withFixture(test: OneArgTest): Outcome = {
-    val firstTopicPartition = TopicPartitionInfo(topic = "topic1", partition = 0, offset = 0)
-    val secondTopicPartition = TopicPartitionInfo(topic = "topic2", partition = 1, offset = 1)
-    val thirdTopicPartition = TopicPartitionInfo(topic = "topic2", partition = 2, offset = 2)
+    val topic1 = "topic1"
+    val topic2 = "topic2"
+    val infoList: List[TopicInfo] = List(
+      TopicInfo(topic = topic1),
+      TopicInfo(topic = topic2)
+    )
+    val topicInfoList = TopicInfoList(infoList)
+
+    val firstTopicPartition = TopicPartitionInfo(topic1, partition = 0, offset = 0)
+    val secondTopicPartition = TopicPartitionInfo(topic2, partition = 1, offset = 1)
+    val thirdTopicPartition = TopicPartitionInfo(topic2, partition = 2, offset = 2)
 
     val topicPartitionInfoList: TopicPartitionInfoList = TopicPartitionInfoList(
       List(firstTopicPartition, secondTopicPartition, thirdTopicPartition)
@@ -45,51 +54,47 @@ class ConsumerTestSuite extends fixture.FlatSpec {
 
     val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
       override protected val consumer: MockConsumer[String, String] = mockConsumer
+
+      override def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
+        super.covertToTopicPartition(topicInfoList)
+      }
     }
 
-    val theFixture = FixtureParam(mockConsumer, testConsumer, topicPartitionInfoList)
+    val theFixture = FixtureParam(mockConsumer, testConsumer, topicInfoList, topicPartitionInfoList)
 
     Try {
       withFixture(test.toNoArgTest(theFixture))
     } match {
-      case Success(x) => x
+      case Success(x) =>
+        Try(mockConsumer.close())
+        x
       case Failure(e: Throwable) =>
         mockConsumer.close()
         throw e
     }
   }
 
-  "assign" should "assign to topics" in { fixture =>
-    val topic1 = "topic1"
-    val topic2 = "topic2"
-    val infoList: List[TopicInfo] = List(
-      TopicInfo(topic = topic1),
-      TopicInfo(topic = topic2)
-    )
-    val topicInfoList = TopicInfoList(infoList)
+  "assign" should "assign a list of topic/partition to this consumer" in { fixture =>
 
-    fixture.mockConsumer.updatePartitions(topic1, List(new PartitionInfo(topic1, 0, Node.noNode(), Array(Node.noNode()), Array(Node.noNode()))).asJava)
-    fixture.mockConsumer.updatePartitions(topic2, List(new PartitionInfo(topic2, 0, Node.noNode(), Array(Node.noNode()), Array(Node.noNode()))).asJava)
+    createPartitions(fixture.topicInfoList, fixture.mockConsumer)
 
-    fixture.testConsumer.assign(topicInfoList)
+    fixture.testConsumer.assign(fixture.topicInfoList)
 
     val topics = fixture.mockConsumer.assignment().asScala.map(_.topic())
 
-    assert(infoList.map(_.topic).toSet == topics)
+    assert(fixture.topicInfoList.entities.map(_.topic).toSet == topics)
 
     fixture.mockConsumer.close()
   }
 
-  "assign" should "throw NoSuchElementException if specified topics are not exists in Kafka" in { fixture =>
-    val topic1 = "topic1"
-    val infoList: List[TopicInfo] = List(TopicInfo(topic = topic1))
-    val topicInfoList = TopicInfoList(infoList)
+  "assign" should "throw NoSuchElementException if specified topics does not exist in Kafka" in { fixture =>
+    assertThrows[NoSuchElementException](fixture.testConsumer.assign(fixture.topicInfoList))
 
-    assertThrows[NoSuchElementException](fixture.testConsumer.assign(topicInfoList))
+    fixture.mockConsumer.close()
   }
 
-  "assign" should "assign to all partitions in topics with offset" in { fixture =>
-    fixture.testConsumer.assign(fixture.topicPartitionInfoList)
+  "assignWithOffsets" should "assign a list of topic/partition to this consumer" in { fixture =>
+    fixture.testConsumer.assignWithOffsets(fixture.topicPartitionInfoList)
 
     val topicPartitions = fixture.mockConsumer.assignment().asScala.toList
     val offsets = topicPartitions.map { x =>
@@ -111,7 +116,7 @@ class ConsumerTestSuite extends fixture.FlatSpec {
       "value"
     )
 
-    fixture.testConsumer.assign(fixture.topicPartitionInfoList)
+    fixture.testConsumer.assignWithOffsets(fixture.topicPartitionInfoList)
     fixture.mockConsumer.addRecord(expectedRecord)
 
     val actualRecord = fixture.testConsumer.poll().asScala.toList.head
@@ -122,7 +127,7 @@ class ConsumerTestSuite extends fixture.FlatSpec {
   }
 
   "commit" should "commit offset for topic partition" in { fixture =>
-    fixture.testConsumer.assign(fixture.topicPartitionInfoList)
+    fixture.testConsumer.assignWithOffsets(fixture.topicPartitionInfoList)
 
     val commitTopicPartitions = fixture.topicPartitionInfoList.entities.map(x => x.copy(offset = x.offset + 1))
       fixture.testConsumer.commit(TopicPartitionInfoList(commitTopicPartitions))
@@ -142,5 +147,25 @@ class ConsumerTestSuite extends fixture.FlatSpec {
     fixture.testConsumer.close()
 
     assert(fixture.mockConsumer.closed())
+  }
+
+  "covertToTopicPartition" should "create list of TopicPartition using partitions information " +
+    "which retrieves from Kafka based on TopicInfoList" in { fixture =>
+    val expectedTopicPartitions = createPartitions(fixture.topicInfoList, fixture.mockConsumer)
+    val covertToTopicPartition = PrivateMethod[List[TopicPartition]]('covertToTopicPartition)
+
+    def convert(topicList: TopicInfoList): List[TopicPartition] = fixture.testConsumer invokePrivate covertToTopicPartition(
+      topicList
+    )
+
+    assert(expectedTopicPartitions == convert(fixture.topicInfoList))
+  }
+
+  private def createPartitions(topicList: TopicInfoList, mockConsumer: MockConsumer[String, String]): List[TopicPartition] = {
+    val partition = 0
+    topicList.entities.map { topicInfo =>
+      mockConsumer.updatePartitions(topicInfo.topic, List(new PartitionInfo(topicInfo.topic, partition, Node.noNode(), Array(Node.noNode()), Array(Node.noNode()))).asJava)
+      new TopicPartition(topicInfo.topic, partition)
+    }
   }
 }

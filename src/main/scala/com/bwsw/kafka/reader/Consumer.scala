@@ -56,11 +56,12 @@ class Consumer[K,V](brokers: String,
   }
 
   /**
-    * Assign to topic partitions and seek offsets
+    * Assign a list of topic/partition to this consumer and
+    * use "seek()" method to override the fetch offsets that the consumer will use on the next poll
     *
-    * @param topicPartitionInfoList entity which include topics, partitions and offsets.
+    * @param topicPartitionInfoList entity which contains topics, partitions and offsets.
     */
-  def assign(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+  def assignWithOffsets(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
     val topicPartitionsWithOffsets = topicPartitionInfoList.entities.map {
       case TopicPartitionInfo(topic, partition, offset) =>
         (new TopicPartition(topic, partition), offset)
@@ -76,21 +77,17 @@ class Consumer[K,V](brokers: String,
   }
 
   /**
-    * Assign to topic partitions
+    * Assign a list of topic/partition to this consumer
     *
-    * @param topicInfoList entity which include topics
+    * @param topicInfoList entity which contains topics
+    * @throws NoSuchElementException if no one of the topics does not exist in Kafka
     */
   def assign(topicInfoList: TopicInfoList): Unit = {
-    val topicPartitions = consumer.listTopics().asScala.toList.collect {
-      case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
-        partitionInfoList.asScala.map { partitionInfo =>
-          new TopicPartition(consumerTopic, partitionInfo.partition())
-        }.toList
-    }.flatten.asJavaCollection
+    val topicPartitions = covertToTopicPartition(topicInfoList).asJavaCollection
     if (!topicPartitions.isEmpty) {
       consumer.assign(topicPartitions)
     } else {
-      throw new NoSuchElementException(s"No one of topics: $topicInfoList are not exists")
+      throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
     }
   }
 
@@ -116,6 +113,15 @@ class Consumer[K,V](brokers: String,
     */
   def close(): Unit = {
     consumer.close()
+  }
+
+  protected def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
+    consumer.listTopics().asScala.toList.collect {
+      case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
+        partitionInfoList.asScala.map { partitionInfo =>
+          new TopicPartition(consumerTopic, partitionInfo.partition())
+        }.toList
+    }.flatten
   }
 
 }
