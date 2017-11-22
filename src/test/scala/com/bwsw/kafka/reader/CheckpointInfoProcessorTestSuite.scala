@@ -64,7 +64,7 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
 
   "save" should  "transform OutputEnvelope entities to TopicPartitionInfoList and then use it to commit consumer offsets" in { fixture =>
     var isExecuted = false
-    val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
+    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
 
       override def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
@@ -84,7 +84,7 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
 
   "load" should "invoke the consumer 'assign' method" in { fixture =>
     var isExecuted = false
-    val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
+    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
 
       override def assign(topicInfoList: TopicInfoList): Unit = {
