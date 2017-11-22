@@ -31,27 +31,25 @@ import scala.collection.JavaConverters._
   * Class is responsible for events extraction from Kafka.
   * It is a wrapper of [[org.apache.kafka.clients.consumer.KafkaConsumer]]
   *
+  * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
+  * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
+  * @param settings settings for Kafka Consumer
   */
-class Consumer[K,V](brokers: String,
-                    groupId: String,
-                    pollTimeout: Int = 500,
-                    autoOffsetReset: String = "earliest",
-                    enableAutoCommit: Boolean = false,
-                    autoCommitInterval: Int = 5000) {
+class Consumer[K,V](settings: Consumer.Settings) {
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val props = createConsumerConfig()
   protected val consumer: org.apache.kafka.clients.consumer.Consumer[K, V] = new KafkaConsumer[K, V](props)
 
   private def createConsumerConfig(): Properties = {
     val props = new Properties()
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, brokers)
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId)
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, autoOffsetReset)
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, enableAutoCommit.toString)
-    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, autoCommitInterval.toString)
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.brokers)
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, settings.groupId)
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, settings.autoOffsetReset)
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, settings.enableAutoCommit.toString)
+    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, settings.autoCommitInterval.toString)
     props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "30000")
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer")
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, settings.keyDeserializer)
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, settings.valueDeserializer)
     props
   }
 
@@ -95,7 +93,7 @@ class Consumer[K,V](brokers: String,
     * @see [[org.apache.kafka.clients.consumer.KafkaConsumer#poll(timeout: Long)]]
     */
   def poll(): ConsumerRecords[K,V] = {
-    consumer.poll(pollTimeout)
+    consumer.poll(settings.pollTimeout)
   }
 
   /**
@@ -124,4 +122,33 @@ class Consumer[K,V](brokers: String,
     }.flatten
   }
 
+}
+
+object Consumer {
+  /**
+    * Case class is responsible for keeping Consumer properties
+    *
+    * @param brokers Kafka endpoints
+    * @param groupId unique string that identifies the consumer group this consumer belongs to
+    * @param pollTimeout time during which the records are extracted from kafka
+    * @param autoOffsetReset what to do when there is no initial offset in Kafka or if the current offset does not exist
+    *                        any more on the server (e.g. because that data has been deleted):
+    *                        earliest: automatically reset the offset to the earliest offset
+    *                        latest: automatically reset the offset to the latest offset
+    *                        none: throw exception to the consumer if no previous offset is found for the consumer's group
+    *                        anything else: throw exception to the consumer
+    * @param enableAutoCommit if true the consumer's offset will be periodically committed in the background
+    * @param autoCommitInterval frequency in milliseconds that the consumer offsets are auto-committed to Kafka if
+    *                           "enableAutoCommit" is set to true
+    * @param keyDeserializer deserializer class for ConsumerRecord key that implements the "Deserializer" interface
+    * @param valueDeserializer deserializer class for ConsumerRecord value that implements the "Deserializer" interface
+    */
+  case class Settings(brokers: String,
+                      groupId: String,
+                      pollTimeout: Int = 500,
+                      autoOffsetReset: String = "earliest",
+                      enableAutoCommit: Boolean = false,
+                      autoCommitInterval: Int = 5000,
+                      keyDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer",
+                      valueDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer")
 }
