@@ -22,18 +22,18 @@ import com.bwsw.kafka.reader.entities.{OutputEnvelope, TopicInfoList, TopicParti
 
 /**
   * Class is responsible for saving and loading checkpoint data for Kafka
-  * Override 'save' and 'load' methods if you need extended logic for managing checkpoints data
+  * Override 'save' and 'load' methods if you need to add the custom logic for managing checkpoint data
   *
   * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
   * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
-  * @tparam T type of data which keeping in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
+  * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
   */
 class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Consumer[K,V]) {
 
   /**
-    * Saves offsets with help of embedded tools of Kafka
+    * Saves checkpoint data with help of embedded tools of Kafka
     *
-    * @param envelopes list with OutputEnvelope entities
+    * @param envelopes list of OutputEnvelope entities
     */
   def save(envelopes: List[OutputEnvelope[T]]): Unit = {
     val partitionsInfo = envelopes.map { envelope =>
@@ -43,7 +43,7 @@ class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Con
   }
 
   /**
-    * Assigns to Kafka with help of Consumer
+    * Loads checkpoint data and assigns Kafka consumer
     *
     */
   def load(): Unit = {

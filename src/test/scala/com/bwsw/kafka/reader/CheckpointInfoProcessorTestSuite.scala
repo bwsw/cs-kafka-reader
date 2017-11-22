@@ -62,7 +62,7 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
     }
   }
 
-  "save" should "execute consumer 'commit' method after transform OutputEnvelope entities to TopicPartitionInfoList" in { fixture =>
+  "save" should  "transform OutputEnvelope entities to TopicPartitionInfoList and then use it to commit consumer offsets" in { fixture =>
     var isExecuted = false
     val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
       override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
@@ -82,7 +82,7 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
     assert(infoProcessor.save(outputEnvelopes).isInstanceOf[Unit] && isExecuted)
   }
 
-  "load" should "execute consumer 'assign' method" in { fixture =>
+  "load" should "invoke the consumer 'assign' method" in { fixture =>
     var isExecuted = false
     val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
       override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
