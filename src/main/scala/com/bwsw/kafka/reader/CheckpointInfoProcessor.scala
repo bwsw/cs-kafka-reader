@@ -23,6 +23,10 @@ import com.bwsw.kafka.reader.entities.{OutputEnvelope, TopicInfoList, TopicParti
 /**
   * Class is responsible for saving and loading checkpoint data for Kafka
   * Override 'save' and 'load' methods if you need extended logic for managing checkpoints data
+  *
+  * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
+  * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
+  * @tparam T type of data which keeping in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
   */
 class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Consumer[K,V]) {
 
