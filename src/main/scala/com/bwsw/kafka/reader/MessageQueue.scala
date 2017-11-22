@@ -24,17 +24,20 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 
 /**
-  * Class is responsible for retrieving ConsumerRecords from Consumer
-  * and keeping it as InputEnvelope entities after its conversion
+  * Class is an intermediate buffer of Kafka events used to decrease a count of requests to Kafka
+  * if there is a need to retrieve a small number of messages, e.g. one.
+  * Class retrieves a list of ConsumerRecords and convert each of them to InputEnvelope
   *
+  * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
+  * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
+  * @param consumer see [[com.bwsw.kafka.reader.Consumer[K,V] ]]
   */
 class MessageQueue[K,V](consumer: Consumer[K,V]) {
   private var buffer = new ListBuffer[InputEnvelope[V]]
 
   /**
     * Retrieves 'n' InputEnvelope from the buffer,
-    * if buffer does not have enough entities, it retrieve ConsumerRecords from the consumer,
-    * converts it to InputEnvelope, and add them to buffer
+    * if buffer does not have enough entities, it tries to retrieve the available data from the consumer
     *
     * @param n count of InputEnvelope entities to extract
     */
@@ -45,7 +48,7 @@ class MessageQueue[K,V](consumer: Consumer[K,V]) {
 
     val sizeAfterFill = buffer.size
 
-    val envelopes = if (sizeAfterFill <= n) {
+    val envelopes = if (sizeAfterFill < n) {
       buffer.take(sizeAfterFill)
     } else {
       buffer.take(n)
@@ -55,6 +58,9 @@ class MessageQueue[K,V](consumer: Consumer[K,V]) {
     envelopes.toList
   }
 
+  /**
+    * Retrieves a list of ConsumerRecords, convert each of them to InputEnvelope and put to a buffer
+    */
   private def fill(): Unit = {
     val envelopes = consumer.poll().asScala.map { record =>
       new InputEnvelope[V](record.topic(), record.partition(), record.offset(), record.value())

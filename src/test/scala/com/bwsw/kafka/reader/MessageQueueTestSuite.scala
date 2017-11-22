@@ -46,7 +46,7 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
       new ConsumerRecord[String, String](topic, partition, offset, "key", data)
     }
 
-    val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
+    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = new MockConsumer[String, String](OffsetResetStrategy.EARLIEST)
 
       override def poll(): ConsumerRecords[String, String] = {
@@ -79,22 +79,26 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
     }
   }
 
-  "fill" should "put InputEnvelope list to buffer" in { fixture =>
+  "fill" should "retrieve a list of ConsumerRecords, convert each of them to InputEnvelope and put to a buffer" in { fixture =>
     val messageClass = classOf[MessageQueue[String,String]]
 
     val fill = messageClass.getDeclaredMethod("fill")
     fill.setAccessible(true)
     fill.invoke(fixture.messageQueue)
 
-    val buffer = messageClass.getDeclaredField("buffer")
-    buffer.setAccessible(true)
-
-    val actualInputEnvelopes = buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[InputEnvelope[String]]].toList
+    val actualInputEnvelopes = fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[InputEnvelope[String]]].toList
 
     assert(actualInputEnvelopes == fixture.expectedInputEnvelopes)
   }
 
-  "take" should "get N InputEnvelopes from buffer if buffer has enough entities" in { fixture =>
+  "take" should "return an empty list if 0 messages are requested" in { fixture =>
+    val size = 0
+
+    assert(fixture.messageQueue.take(size) == List())
+    assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].isEmpty)
+  }
+
+  "take" should "return the specified number of InputEnvelopes retrieved from buffer if buffer has enough entities" in { fixture =>
     val size = fixture.expectedInputEnvelopes.size
     fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]] ++= fixture.expectedInputEnvelopes)
 
@@ -102,7 +106,8 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
     assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].size == 1)
   }
 
-  "take" should "get N InputEnvelopes from buffer if buffer has enough entities after execution method fill()" in { fixture =>
+  "take" should "return specified number of InputEnvelopes retrieved from buffer " +
+    "if buffer has enough entities after fill() method execution" in { fixture =>
     val size = fixture.expectedInputEnvelopes.size
     fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]])
 
@@ -110,7 +115,8 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
     assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].size == 1)
   }
 
-  "take" should "get all InputEnvelopes from buffer if buffer does not have enough entities after execution method fill()" in { fixture =>
+  "take" should "return all available InputEnvelopes retrieved from buffer " +
+    "if buffer does not have enough entities after fill() method execution" in { fixture =>
     val size = fixture.expectedInputEnvelopes.size
     fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]])
 

@@ -52,7 +52,7 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
 
     val mockConsumer = new MockConsumer[String, String](OffsetResetStrategy.EARLIEST)
 
-    val testConsumer = new Consumer[String, String]("127.0.0.1:9000", "groupId") {
+    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = mockConsumer
 
       override def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
