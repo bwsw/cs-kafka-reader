@@ -20,8 +20,22 @@ package com.bwsw.kafka.reader
 
 import com.bwsw.kafka.reader.entities.OutputEnvelope
 
-abstract class EventHandler[V, T](messageCount: Int) {
+/**
+  * Class is responsible for processing InputEnvelope entities from MessageQueue
+  *
+  * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
+  * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
+  * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
+  * @param messageCount count of messages for retrieve from MessageQueue
+  * @param messageQueue queue which stored InputEnvelope entities
+  */
+abstract class EventHandler[K,V,T](messageCount: Int, messageQueue: MessageQueue[K,V]) {
 
+  /**
+    * Override it for logic realization
+    *
+    * @param flag boolean variable for notify high level object about some problem with message handling
+    */
   def handle(flag: => Boolean): OutputEnvelope[T]
 
 }
