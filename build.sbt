@@ -17,13 +17,16 @@
 * under the License.
 */
 
-name := "kafka-reader"
-
-version := "1.0"
-
-scalaVersion := "2.12.4"
-
-libraryDependencies += "org.slf4j" % "slf4j-api" % "1.7.25"
-libraryDependencies += ("org.apache.kafka" % "kafka_2.12" % "0.10.1.1")
-  .exclude("org.slf4j", "slf4j-api")
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
+lazy val root = (project in file("."))
+  .configs(IntegrationTest)
+  .settings(
+    name := "kafka-reader",
+    version := "1.0",
+    scalaVersion := "2.12.4",
+    libraryDependencies ++= Seq(
+      "org.slf4j" % "slf4j-api" % "1.7.25",
+      ("org.apache.kafka" % "kafka_2.12" % "0.10.1.1").exclude("org.slf4j", "slf4j-api"),
+      "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
+    ),
+    inConfig(IntegrationTest)(Defaults.itSettings)
+  )
