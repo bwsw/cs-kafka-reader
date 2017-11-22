@@ -20,8 +20,8 @@ package com.bwsw.kafka.reader
 
 import com.bwsw.kafka.reader.entities.OutputEnvelope
 
-trait EventHandler[V, T] {
-  var messageCount: Int
-  
+abstract class EventHandler[V, T](messageCount: Int) {
+
   def handle(flag: => Boolean): OutputEnvelope[T]
+
 }

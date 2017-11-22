@@ -130,7 +130,8 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
     fixture.testConsumer.assignWithOffsets(fixture.topicPartitionInfoList)
 
     val commitTopicPartitions = fixture.topicPartitionInfoList.entities.map(x => x.copy(offset = x.offset + 1))
-      fixture.testConsumer.commit(TopicPartitionInfoList(commitTopicPartitions))
+
+    fixture.testConsumer.commit(TopicPartitionInfoList(commitTopicPartitions))
 
     val offsets = commitTopicPartitions.map { topicPartitionInfo =>
       fixture.mockConsumer.committed(
