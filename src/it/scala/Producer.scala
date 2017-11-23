@@ -27,7 +27,7 @@ class Producer[K,V](kafkaEndpoints: String) {
 
   private val producer = new KafkaProducer[K,V](props)
 
-  def put(records: List[ProducerRecord[K,V]]): Unit = {
+  def send(records: List[ProducerRecord[K,V]]): Unit = {
     records.foreach(record => producer.send(record))
   }
 }
