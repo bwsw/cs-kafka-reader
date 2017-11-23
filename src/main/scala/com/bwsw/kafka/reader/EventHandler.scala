@@ -18,24 +18,26 @@
 */
 package com.bwsw.kafka.reader
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 import com.bwsw.kafka.reader.entities.OutputEnvelope
 
 /**
-  * Class is responsible for processing InputEnvelope entities from MessageQueue
+  * Class is responsible for processing Kafka messages wrapped in InputEnvelopes using MessageQueue
   *
   * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
   * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
   * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
-  * @param messageCount count of messages for retrieve from MessageQueue
-  * @param messageQueue queue which stored InputEnvelope entities
+  * @param messageCount count of messages to retrieve from MessageQueue
+  * @param messageQueue queue containing InputEnvelope entities
   */
-abstract class EventHandler[K,V,T](messageCount: Int, messageQueue: MessageQueue[K,V]) {
+abstract class EventHandler[K,V,T](messageQueue: MessageQueue[K,V], messageCount: Int) {
 
   /**
-    * Override it for logic realization
+    * Override it for implementing custom logic
     *
-    * @param flag boolean variable for notify high level object about some problem with message handling
+    * @param flag boolean variable to notify a high-level object about some problems with message handling
     */
-  def handle(flag: => Boolean): OutputEnvelope[T]
+  def handle(flag: AtomicBoolean): OutputEnvelope[T]
 
 }
