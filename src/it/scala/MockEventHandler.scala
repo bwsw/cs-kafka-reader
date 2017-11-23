@@ -22,13 +22,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.bwsw.kafka.reader.entities.OutputEnvelope
 import com.bwsw.kafka.reader.{EventHandler, MessageQueue}
 
-class MockEventHandler[K,V,T](messageQueue: MessageQueue[K,V], messageCount: Int)
-  extends EventHandler[K,V,T](messageQueue, messageCount) {
+class MockEventHandler[K,V](messageQueue: MessageQueue[K,V], messageCount: Int)
+  extends EventHandler[K,V,V](messageQueue, messageCount) {
 
-  override def handle(flag: AtomicBoolean): List[OutputEnvelope[T]] = {
+  override def handle(flag: AtomicBoolean): List[OutputEnvelope[V]] = {
     val inputEnvelopes = messageQueue.take(messageCount)
     inputEnvelopes.map { x =>
-      OutputEnvelope[T](x.topic, x.partition, x.offset, x.data.asInstanceOf[T])
+      OutputEnvelope[V](x.topic, x.partition, x.offset, x.data)
     }
   }
 
