@@ -16,11 +16,11 @@
 * specific language governing permissions and limitations
 * under the License.
 */
+package com.bwsw.kafka.reader
 
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.kafka.reader.entities.OutputEnvelope
-import com.bwsw.kafka.reader.{EventHandler, MessageQueue}
 
 class MockEventHandler[K,V](messageQueue: MessageQueue[K,V], messageCount: Int)
   extends EventHandler[K,V,V](messageQueue, messageCount) {

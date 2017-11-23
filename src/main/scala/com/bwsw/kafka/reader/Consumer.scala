@@ -87,6 +87,9 @@ class Consumer[K,V](settings: Consumer.Settings) {
     } else {
       throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
     }
+    topicPartitions.forEach { partition =>
+      consumer.seek(partition, consumer.position(partition))
+    }
   }
 
   /**

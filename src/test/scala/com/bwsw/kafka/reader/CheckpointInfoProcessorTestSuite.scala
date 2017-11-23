@@ -69,7 +69,10 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
 
       override def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
         isExecuted = true
-        assert(fixture.topicPartitionInfoList == topicPartitionInfoList)
+        val expectedTopicPartitions = fixture.topicPartitionInfoList.entities.map {
+          x => x.copy(offset = x.offset + 1)
+        }
+        assert(expectedTopicPartitions == topicPartitionInfoList.entities)
       }
     }
 
