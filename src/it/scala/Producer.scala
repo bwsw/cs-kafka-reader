@@ -17,17 +17,17 @@
 * under the License.
 */
 
-lazy val root = (project in file("."))
-  .configs(IntegrationTest)
-  .settings(
-    name := "kafka-reader",
-    version := "1.0",
-    scalaVersion := "2.12.4",
-    libraryDependencies ++= Seq(
-      "com.typesafe" % "config" % "1.3.0",
-      "org.slf4j" % "slf4j-api" % "1.7.25",
-      ("org.apache.kafka" % "kafka_2.12" % "0.10.1.1").exclude("org.slf4j", "slf4j-api"),
-      "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
-    ),
-    inConfig(IntegrationTest)(Defaults.itSettings)
-  )
+import java.util.Properties
+
+import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
+
+class Producer[K,V](kafkaEndpoints: String) {
+  private val props = new Properties()
+  props.put("bootstrap.servers", kafkaEndpoints)
+
+  private val producer = new KafkaProducer[K,V](props)
+
+  def send(records: List[ProducerRecord[K,V]]): Unit = {
+    records.foreach(record => producer.send(record))
+  }
+}
