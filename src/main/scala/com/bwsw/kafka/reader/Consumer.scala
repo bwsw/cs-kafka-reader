@@ -60,6 +60,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * @param topicPartitionInfoList entity which contains topics, partitions and offsets.
     */
   def assignWithOffsets(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+    logger.trace(s"assignWithOffsets(topicPartitionInfoList: $topicPartitionInfoList)")
     val topicPartitionsWithOffsets = topicPartitionInfoList.entities.map {
       case TopicPartitionInfo(topic, partition, offset) =>
         (new TopicPartition(topic, partition), offset)
@@ -70,7 +71,8 @@ class Consumer[K,V](settings: Consumer.Settings) {
       }.asJavaCollection
     )
     topicPartitionsWithOffsets.foreach {
-      case (topicPartition, offset) => consumer.seek(topicPartition, offset)
+      case (topicPartition, offset) =>
+        consumer.seek(topicPartition, offset)
     }
   }
 
@@ -81,10 +83,12 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * @throws NoSuchElementException if no one of the topics does not exist in Kafka
     */
   def assign(topicInfoList: TopicInfoList): Unit = {
+    logger.trace(s"topicInfoList: $topicInfoList")
     val topicPartitions = covertToTopicPartition(topicInfoList).asJavaCollection
     if (!topicPartitions.isEmpty) {
       consumer.assign(topicPartitions)
     } else {
+      logger.error(s"No one of topics: $topicInfoList does not exist, NoSuchElementException will be thrown")
       throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
     }
   }
@@ -93,6 +97,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * @see [[org.apache.kafka.clients.consumer.KafkaConsumer#poll(timeout: Long)]]
     */
   def poll(): ConsumerRecords[K,V] = {
+    logger.trace("poll()")
     consumer.poll(settings.pollTimeout)
   }
 
@@ -100,9 +105,11 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * Commit the specified offsets for the specified list of topics and partitions.
     */
   def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+    logger.trace(s"commit(topicPartitionInfoList: $topicPartitionInfoList)")
     val topicPartitionsWithMetadata = topicPartitionInfoList.entities.map { topicPartitionInfo =>
       new TopicPartition(topicPartitionInfo.topic, topicPartitionInfo.partition) -> new OffsetAndMetadata(topicPartitionInfo.offset, "")
     }.toMap.asJava
+    logger.debug(s"Data for commit is: $topicPartitionsWithMetadata")
     consumer.commitSync(topicPartitionsWithMetadata)
   }
 
@@ -110,16 +117,20 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * Close the consumer
     */
   def close(): Unit = {
+    logger.trace("close()")
     consumer.close()
   }
 
   protected def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
-    consumer.listTopics().asScala.toList.collect {
+    logger.trace(s"covertToTopicPartition(topicInfoList: $topicInfoList)")
+    val topicPartitions = consumer.listTopics().asScala.toList.collect {
       case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
         partitionInfoList.asScala.map { partitionInfo =>
           new TopicPartition(consumerTopic, partitionInfo.partition())
         }.toList
     }.flatten
+    logger.debug(s"TopicPartition list: '$topicPartitions' based on topicInfoList: $topicInfoList received ")
+    topicPartitions
   }
 
 }
