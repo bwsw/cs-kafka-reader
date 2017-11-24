@@ -70,10 +70,10 @@ class Consumer[K,V](settings: Consumer.Settings) {
       case (partition, offset) => partition
     }
 
-    logger.debug(s"assign topic partitions: $topicPartitions")
+    logger.debug(s"Assign the topic partitions: $topicPartitions")
     consumer.assign(topicPartitions.asJavaCollection)
 
-    logger.debug(s"seek topic partitions with offsets: $topicPartitionsWithOffsets")
+    logger.debug(s"Seek topic partitions with offsets: $topicPartitionsWithOffsets")
     topicPartitionsWithOffsets.foreach {
       case (partition, offset) => consumer.seek(partition, offset)
     }
@@ -89,7 +89,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
     logger.trace(s"topicInfoList: $topicInfoList")
     val topicPartitions = convertToTopicPartition(topicInfoList)
     if (topicPartitions.nonEmpty) {
-      logger.debug(s"assign topic partitions: $topicPartitions")
+      logger.debug(s"Assign the topic partitions: $topicPartitions")
       consumer.assign(topicPartitions.asJavaCollection)
     } else {
       logger.error(s"No one of topics: $topicInfoList exists, NoSuchElementException will be thrown")
@@ -100,7 +100,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
       (partition, consumer.position(partition))
     }
 
-    logger.debug(s"seek topic partitions with offsets: $topicPartitionsWithOffsets")
+    logger.debug(s"Seek topic partitions with offsets: $topicPartitionsWithOffsets.")
     topicPartitionsWithOffsets.foreach {
       case (partition, offset) => consumer.seek(partition, offset)
     }
@@ -142,7 +142,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
           new TopicPartition(consumerTopic, partitionInfo.partition())
         }.toList
     }.flatten
-    logger.debug(s"TopicPartition list: '$topicPartitions' based on topicInfoList: $topicInfoList received ")
+    logger.debug(s"TopicPartition list: '$topicPartitions' based on topicInfoList: $topicInfoList received")
     topicPartitions
   }
 
