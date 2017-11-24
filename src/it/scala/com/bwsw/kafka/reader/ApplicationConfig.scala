@@ -16,6 +16,8 @@
 * specific language governing permissions and limitations
 * under the License.
 */
+package com.bwsw.kafka.reader
+
 import com.typesafe.config.{Config, ConfigException, ConfigFactory}
 import org.slf4j.LoggerFactory
 

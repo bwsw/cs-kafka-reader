@@ -39,7 +39,7 @@ class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Con
   def save(envelopes: List[OutputEnvelope[T]]): Unit = {
     logger.trace(s"save(envelopes: $envelopes)")
     val partitionsInfo = envelopes.map { envelope =>
-      TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset)
+      TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset + 1)
     }
     logger.debug(s"PartitionInfo list: '$partitionsInfo' based on OutputEnvelope entities: '$envelopes' received" )
     consumer.commit(TopicPartitionInfoList(partitionsInfo))

@@ -84,12 +84,15 @@ class Consumer[K,V](settings: Consumer.Settings) {
     */
   def assign(topicInfoList: TopicInfoList): Unit = {
     logger.trace(s"topicInfoList: $topicInfoList")
-    val topicPartitions = covertToTopicPartition(topicInfoList).asJavaCollection
-    if (!topicPartitions.isEmpty) {
-      consumer.assign(topicPartitions)
+    val topicPartitions = covertToTopicPartition(topicInfoList)
+    if (topicPartitions.nonEmpty) {
+      consumer.assign(topicPartitions.asJavaCollection)
     } else {
       logger.error(s"No one of topics: $topicInfoList does not exist, NoSuchElementException will be thrown")
       throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
+    }
+    topicPartitions.foreach { partition =>
+      consumer.seek(partition, consumer.position(partition))
     }
   }
 
@@ -156,7 +159,7 @@ object Consumer {
     */
   case class Settings(brokers: String,
                       groupId: String,
-                      pollTimeout: Int = 500,
+                      pollTimeout: Int = 2000,
                       autoOffsetReset: String = "earliest",
                       enableAutoCommit: Boolean = false,
                       autoCommitInterval: Int = 5000,

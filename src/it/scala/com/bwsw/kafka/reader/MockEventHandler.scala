@@ -22,22 +22,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.kafka.reader.entities.OutputEnvelope
 
-/**
-  * Class is responsible for processing Kafka messages wrapped in InputEnvelopes using MessageQueue
-  *
-  * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
-  * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
-  * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
-  * @param messageCount count of messages to retrieve from MessageQueue
-  * @param messageQueue queue containing InputEnvelope entities
-  */
-abstract class EventHandler[K,V,T](messageQueue: MessageQueue[K,V], messageCount: Int) {
+class MockEventHandler[K,V](messageQueue: MessageQueue[K,V], messageCount: Int)
+  extends EventHandler[K,V,V](messageQueue, messageCount) {
 
-  /**
-    * Override it for implementing custom logic
-    *
-    * @param flag boolean variable to notify a high-level object about some problems with message handling
-    */
-  def handle(flag: AtomicBoolean): List[OutputEnvelope[T]]
+  override def handle(flag: AtomicBoolean): List[OutputEnvelope[V]] = {
+    val inputEnvelopes = messageQueue.take(messageCount)
+    inputEnvelopes.map { x =>
+      OutputEnvelope[V](x.topic, x.partition, x.offset, x.data)
+    }
+  }
 
 }
