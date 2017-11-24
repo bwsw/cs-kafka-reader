@@ -58,19 +58,18 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     "run from a scratch and not receive any message" in { fixture =>
     val topic = getNextTopic
     val topicInfoList = TopicInfoList(List(TopicInfo(topic)))
-    val expectedTestDataList = createListWithTestData(topic, countOfTestElementForTopic)
-    val producerRecords = expectedTestDataList.map {
+    val testDataSet = createSetWithTestData(topic, countOfTestElementForTopic)
+    val producerRecords = testDataSet.map {
       case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
     }
 
-    fixture.producer.send(producerRecords)
+    fixture.producer.send(producerRecords.toList)
 
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      countOfTestElementForTopic,
-      expectedTestDataList.map(_._2).toSet
+      retrieveCount = countOfTestElementForTopic,
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -83,19 +82,18 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     val topic = getNextTopic
     val topic2 = getNextTopic
     val topicInfoList = TopicInfoList(List(TopicInfo(topic), TopicInfo(topic2)))
-    val expectedTestDataList = createListWithTestData(topic, countOfTestElementForTopic) ::: createListWithTestData(topic2, countOfTestElementForTopic)
-    val producerRecords = expectedTestDataList.map {
+    val testDataSet = createSetWithTestData(topic, countOfTestElementForTopic) ++ createSetWithTestData(topic2, countOfTestElementForTopic)
+    val producerRecords = testDataSet.map {
       case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
     }
 
-    fixture.producer.send(producerRecords)
+    fixture.producer.send(producerRecords.toList)
 
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      countOfTestElementForTopic * 2,
-      expectedTestDataList.map(_._2).toSet
+      retrieveCount = testDataSet.size
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -104,8 +102,7 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
   private def testForNonEmptyTopics(kafkaEndpoints: String,
                                     consumerGroupId: String,
                                     topicInfoList: TopicInfoList,
-                                    retrieveCount: Int,
-                                    expectedTestDataSet: Set[String]): Unit = {
+                                    retrieveCount: Int): Unit = {
 
     val testEntities = createTestEntities[String, String, String](
       kafkaEndpoints,
@@ -123,7 +120,7 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
       x.data
     }
 
-    assert(actualTestDataList.toSet == expectedTestDataSet)
+    assert(actualTestDataList.toSet.size == retrieveCount)
 
     testEntities.checkpointInfoProcessor.save(outputEnvelopes)
 
@@ -152,9 +149,9 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     s"topic$topicNumber"
   }
 
-  private def createListWithTestData(data: String, count: Int): List[(String,String)] = (1 to count).toList.map { x =>
+  private def createSetWithTestData(data: String, count: Int): Set[(String,String)] = (1 to count).map { x =>
     data -> s"$data + $x"
-  }
+  }.toSet
 
   private def createTestEntities[K,V,T](kafkaEndpoints: String,
                                         consumerGroupId: String,
