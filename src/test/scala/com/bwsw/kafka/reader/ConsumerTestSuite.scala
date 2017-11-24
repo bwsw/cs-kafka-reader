@@ -75,8 +75,12 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
   }
 
   "assign" should "assign a list of topic/partition to this consumer" in { fixture =>
-
+    val offset: Long = 0
     createPartitions(fixture.topicInfoList, fixture.mockConsumer)
+
+    fixture.mockConsumer.updateBeginningOffsets(fixture.topicInfoList.entities.map { x =>
+      new TopicPartition(x.topic, 0) -> new java.lang.Long(offset)
+    }.toMap.asJava)
 
     fixture.testConsumer.assign(fixture.topicInfoList)
 

@@ -37,7 +37,7 @@ class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Con
     */
   def save(envelopes: List[OutputEnvelope[T]]): Unit = {
     val partitionsInfo = envelopes.map { envelope =>
-      TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset)
+      TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset + 1)
     }
     consumer.commit(TopicPartitionInfoList(partitionsInfo))
   }

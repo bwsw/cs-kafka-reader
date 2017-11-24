@@ -81,11 +81,14 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * @throws NoSuchElementException if no one of the topics does not exist in Kafka
     */
   def assign(topicInfoList: TopicInfoList): Unit = {
-    val topicPartitions = covertToTopicPartition(topicInfoList).asJavaCollection
-    if (!topicPartitions.isEmpty) {
-      consumer.assign(topicPartitions)
+    val topicPartitions = covertToTopicPartition(topicInfoList)
+    if (topicPartitions.nonEmpty) {
+      consumer.assign(topicPartitions.asJavaCollection)
     } else {
       throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
+    }
+    topicPartitions.foreach { partition =>
+      consumer.seek(partition, consumer.position(partition))
     }
   }
 
@@ -145,7 +148,7 @@ object Consumer {
     */
   case class Settings(brokers: String,
                       groupId: String,
-                      pollTimeout: Int = 500,
+                      pollTimeout: Int = 2000,
                       autoOffsetReset: String = "earliest",
                       enableAutoCommit: Boolean = false,
                       autoCommitInterval: Int = 5000,
