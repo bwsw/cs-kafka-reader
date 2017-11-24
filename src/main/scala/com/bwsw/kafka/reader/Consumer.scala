@@ -101,7 +101,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
     }
 
     logger.debug(s"seek topic partitions with offsets: $topicPartitionsWithOffsets")
-    topicPartitions.foreach {
+    topicPartitionsWithOffsets.foreach {
       case (partition, offset) => consumer.seek(partition, offset)
     }
   }
