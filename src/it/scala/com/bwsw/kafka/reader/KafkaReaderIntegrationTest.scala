@@ -28,6 +28,7 @@ import scala.util.{Failure, Success, Try}
 
 
 class KafkaReaderIntegrationTest extends fixture.FlatSpec {
+  var topicNumber = 0
 
   case class FixtureParam(producer: Producer[String, String], kafkaEndpoints: String)
 
@@ -52,7 +53,7 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
 
   "MockEventHandler" should "handle all events from single Kafka topic and then handle nil events" in { fixture =>
     val groupId = "group1"
-    val topic = "topic"
+    val topic = getNextTopic
     val topicInfoList = TopicInfoList(List(TopicInfo(topic)))
     val countOfTestData = 10
     val expectedTestDataList = createListWithTestData(topic, countOfTestData)
@@ -60,22 +61,23 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
       case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
     }
 
-    val sendProducerFuture = fixture.producer.send(producerRecords)
+    fixture.producer.send(producerRecords)
 
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
-      groupId, topicInfoList,
+      groupId,
+      topicInfoList,
       countOfTestData,
       expectedTestDataList.map(_._2).toSet
     )
 
-    testForEmptyTopics(fixture.kafkaEndpoints, "group1", topicInfoList)
+    testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
   }
 
   "MockEventHandler" should "handle all events from multiple Kafka topics and then handle nil events" in { fixture =>
     val groupId = "group1"
-    val topic = "topic"
-    val topic2 = "topic2"
+    val topic = getNextTopic
+    val topic2 = getNextTopic
     val topicInfoList = TopicInfoList(List(TopicInfo(topic), TopicInfo(topic2)))
     val countOfTestData = 10
     val expectedTestDataList = createListWithTestData(topic, countOfTestData/2) ::: createListWithTestData(topic2, countOfTestData/2)
@@ -83,11 +85,12 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
       case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
     }
 
-    val sendProducerFuture = fixture.producer.send(producerRecords)
+    fixture.producer.send(producerRecords)
 
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
-      groupId, topicInfoList,
+      groupId,
+      topicInfoList,
       countOfTestData/2 * 2,
       expectedTestDataList.map(_._2).toSet
     )
@@ -95,14 +98,14 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
   }
 
-  private def testForNonEmptyTopics(kafkaEndpionts: String,
+  private def testForNonEmptyTopics(kafkaEndpoints: String,
                                     consumerGroupId: String,
                                     topicInfoList: TopicInfoList,
                                     retrieveCount: Int,
                                     expectedTestDataSet: Set[String]): Unit = {
 
     val firstTestEntities = createTestEntities[String, String, String](
-      kafkaEndpionts,
+      kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       retrieveCount
@@ -124,11 +127,11 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     firstTestEntities.consumer.close()
   }
 
-  private def testForEmptyTopics(kafkaEndpionts: String,
+  private def testForEmptyTopics(kafkaEndpoints: String,
                                  consumerGroupId: String,
                                  topicInfoList: TopicInfoList): Unit = {
     val secondTestEntities = createTestEntities[String, String, String](
-      kafkaEndpionts,
+      kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       10
@@ -141,16 +144,21 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
     secondTestEntities.consumer.close()
   }
 
+  private def getNextTopic: String = {
+    topicNumber = topicNumber + 1
+    s"topic$topicNumber"
+  }
+
   private def createListWithTestData(data: String, count: Int): List[(String,String)] = (1 to count).toList.map { x =>
     data -> s"$data + $x"
   }
 
-  private def createTestEntities[K,V,T](kafkaEndpionts: String,
+  private def createTestEntities[K,V,T](kafkaEndpoints: String,
                                         consumerGroupId: String,
                                         topicInfoList: TopicInfoList,
                                         countOfMessages: Int): TestEntities[K,V,T] = {
 
-    val consumer = new Consumer[K,V](Consumer.Settings(kafkaEndpionts, consumerGroupId, 2000))
+    val consumer = new Consumer[K,V](Consumer.Settings(kafkaEndpoints, consumerGroupId, 3000))
 
     val checkpointInfoProcessor = new CheckpointInfoProcessor[K,V,T](
       topicInfoList,
