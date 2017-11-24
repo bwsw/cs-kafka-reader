@@ -41,7 +41,7 @@ class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Con
     val partitionsInfo = envelopes.map { envelope =>
       TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset + 1)
     }
-    logger.debug(s"PartitionInfo list: '$partitionsInfo' based on OutputEnvelope entities: '$envelopes' received" )
+    logger.debug(s"PartitionInfo list: '$partitionsInfo' based on OutputEnvelope entities: '$envelopes' will be committed" )
     consumer.commit(TopicPartitionInfoList(partitionsInfo))
   }
 

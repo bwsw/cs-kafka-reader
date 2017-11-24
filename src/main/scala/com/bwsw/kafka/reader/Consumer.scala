@@ -65,14 +65,17 @@ class Consumer[K,V](settings: Consumer.Settings) {
       case TopicPartitionInfo(topic, partition, offset) =>
         (new TopicPartition(topic, partition), offset)
     }
-    consumer.assign(
-      topicPartitionsWithOffsets.map {
-        case (topicPartitions, offset) => topicPartitions
-      }.asJavaCollection
-    )
+
+    val topicPartitions = topicPartitionsWithOffsets.map {
+      case (partition, offset) => partition
+    }
+
+    logger.debug(s"assign topic partitions: $topicPartitions")
+    consumer.assign(topicPartitions.asJavaCollection)
+
+    logger.debug(s"seek topic partitions with offsets: $topicPartitionsWithOffsets")
     topicPartitionsWithOffsets.foreach {
-      case (topicPartition, offset) =>
-        consumer.seek(topicPartition, offset)
+      case (partition, offset) => consumer.seek(partition, offset)
     }
   }
 
@@ -80,19 +83,26 @@ class Consumer[K,V](settings: Consumer.Settings) {
     * Assign a list of topic/partition to this consumer
     *
     * @param topicInfoList entity which contains topics
-    * @throws NoSuchElementException if no one of the topics does not exist in Kafka
+    * @throws NoSuchElementException if no one of topics exists in Kafka
     */
   def assign(topicInfoList: TopicInfoList): Unit = {
     logger.trace(s"topicInfoList: $topicInfoList")
-    val topicPartitions = covertToTopicPartition(topicInfoList)
+    val topicPartitions = convertToTopicPartition(topicInfoList)
     if (topicPartitions.nonEmpty) {
+      logger.debug(s"assign topic partitions: $topicPartitions")
       consumer.assign(topicPartitions.asJavaCollection)
     } else {
-      logger.error(s"No one of topics: $topicInfoList does not exist, NoSuchElementException will be thrown")
-      throw new NoSuchElementException(s"No one of topics: $topicInfoList does not exist")
+      logger.error(s"No one of topics: $topicInfoList exists, NoSuchElementException will be thrown")
+      throw new NoSuchElementException(s"No one of topics: $topicInfoList exists")
     }
-    topicPartitions.foreach { partition =>
-      consumer.seek(partition, consumer.position(partition))
+
+    val topicPartitionsWithOffsets = topicPartitions.map { partition =>
+      (partition, consumer.position(partition))
+    }
+
+    logger.debug(s"seek topic partitions with offsets: $topicPartitionsWithOffsets")
+    topicPartitions.foreach {
+      case (partition, offset) => consumer.seek(partition, offset)
     }
   }
 
@@ -124,8 +134,8 @@ class Consumer[K,V](settings: Consumer.Settings) {
     consumer.close()
   }
 
-  protected def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
-    logger.trace(s"covertToTopicPartition(topicInfoList: $topicInfoList)")
+  protected def convertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
+    logger.trace(s"convertToTopicPartition(topicInfoList: $topicInfoList)")
     val topicPartitions = consumer.listTopics().asScala.toList.collect {
       case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
         partitionInfoList.asScala.map { partitionInfo =>

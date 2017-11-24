@@ -46,19 +46,19 @@ class MessageQueue[K,V](consumer: Consumer[K,V]) {
   def take(n: Int): List[InputEnvelope[V]] = {
     logger.trace(s"take(n: $n)")
     if (buffer.size < n) {
-      logger.debug("Count of entities in buffer is not enough, new entities will be received from Kafka")
+      logger.debug("Count of entities in buffer is not enough, new entities will be retrieved from Kafka")
       fill()
     }
 
     val sizeAfterFill = buffer.size
-    logger.debug(s"Count of entities in buffer after receiving from Kafka is: $sizeAfterFill")
+    logger.debug(s"Count of entities in buffer after retrieving from Kafka is: $sizeAfterFill")
 
     val envelopes = if (sizeAfterFill < n) {
       buffer.take(sizeAfterFill)
     } else {
       buffer.take(n)
     }
-    logger.debug(s"Entities: $envelopes received")
+    logger.debug(s"The following entities: $envelopes will be returned")
 
     buffer.remove(0, envelopes.size)
     envelopes.toList
@@ -71,7 +71,7 @@ class MessageQueue[K,V](consumer: Consumer[K,V]) {
     logger.trace("fill()")
     
     val records = consumer.poll().asScala
-    logger.debug(s"Record: $records received from Kafka")
+    logger.debug(s"Record: $records retrieved from Kafka")
 
     val envelopes = records.map { record =>
       new InputEnvelope[V](record.topic(), record.partition(), record.offset(), record.value())
