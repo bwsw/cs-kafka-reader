@@ -21,7 +21,7 @@ lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
     name := "kafka-reader",
-    version := "1.0",
+    version := "0.11",
     scalaVersion := "2.12.4",
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.3.0",
@@ -29,5 +29,28 @@ lazy val root = (project in file("."))
       ("org.apache.kafka" % "kafka_2.12" % "0.10.1.1").exclude("org.slf4j", "slf4j-api"),
       "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
     ),
+    pomIncludeRepository := { _ => false },
+    publishMavenStyle := true,
+    publishTo := {
+      val nexus = "https://oss.sonatype.org/"
+      if (isSnapshot.value) {
+        Some("snapshots" at nexus + "content/repositories/snapshots")
+      } else {
+        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+      }
+    },
+    pomExtra := (
+      <scm>
+        <url>git@github.com:bwsw/kafka-reader.git</url>
+        <connection>scm:git@github.com:bwsw/kafka-reader.git</connection>
+      </scm>
+        <developers>
+          <developer>
+            <id>bitworks</id>
+            <name>Bitworks Software, Ltd.</name>
+            <url>http://bitworks.software/</url>
+          </developer>
+        </developers>
+      ),
     inConfig(IntegrationTest)(Defaults.itSettings)
   )
