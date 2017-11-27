@@ -21,7 +21,7 @@ lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
     name := "kafka-reader",
-    version := "0.11",
+    version := "0.10.1",
     scalaVersion := "2.12.4",
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.3.0",
@@ -30,7 +30,10 @@ lazy val root = (project in file("."))
       "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
     ),
     pomIncludeRepository := { _ => false },
+    licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
+    homepage := Some(url("https://github.com/bwsw/kafka-reader")),
     publishMavenStyle := true,
+    publishArtifact in Test := false,
     publishTo := {
       val nexus = "https://oss.sonatype.org/"
       if (isSnapshot.value) {
@@ -39,18 +42,19 @@ lazy val root = (project in file("."))
         Some("releases"  at nexus + "service/local/staging/deploy/maven2")
       }
     },
-    pomExtra := (
-      <scm>
-        <url>git@github.com:bwsw/kafka-reader.git</url>
-        <connection>scm:git@github.com:bwsw/kafka-reader.git</connection>
-      </scm>
-        <developers>
-          <developer>
-            <id>bitworks</id>
-            <name>Bitworks Software, Ltd.</name>
-            <url>http://bitworks.software/</url>
-          </developer>
-        </developers>
-      ),
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/bwsw/kafka-reader"),
+        "scm:git@github.com:bwsw/kafka-reader.git"
+      )
+    ),
+    developers := List(
+      Developer(
+        id    = "bitworks",
+        name  = "Bitworks Software, Ltd.",
+        email = "bitworks@bw-sw.com",
+        url   = url("http://bitworks.software/")
+      )
+    ),
     inConfig(IntegrationTest)(Defaults.itSettings)
   )

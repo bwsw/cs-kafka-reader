@@ -30,12 +30,6 @@ if [ -n "$GIT_BRANCH" ]; then
         echo "------- Publish to Maven repository ---------"
         echo "---------------------------------------------"
 
-        echo "credentials += Credentials(\"Sonatype Nexus Repository Manager\",
-             \"oss.sonatype.org\",
-             \"$USER_NAME\",
-             \"$USER_PASSWORD\")" | sudo cat > $PATH_TO_SBT/sonatype.sbt
         sbt publish
-
-        sudo rm $PATH_TO_SBT/sonatype.sbt
 	fi
 fi
