@@ -65,11 +65,14 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
 
     fixture.producer.send(producerRecords.toList)
 
+    val testDataSetSize = testDataSet.size
+
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      retrieveCount = countOfTestElementForTopic,
+      retrievedCount = testDataSetSize,
+      expectedCount = testDataSetSize
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -89,11 +92,80 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
 
     fixture.producer.send(producerRecords.toList)
 
+    val testDataSetSize = testDataSet.size
+
     testForNonEmptyTopics(
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      retrieveCount = testDataSet.size
+      retrievedCount = testDataSetSize,
+      expectedCount = testDataSetSize
+    )
+
+    testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
+  }
+
+  it should "process some part of events from single Kafka topic, save checkpoint data (indicating what events have been processed). " +
+    "Next, run from a scratch and repeat the two first steps for the rest of events. " +
+    "Then run again from a scratch and it should not receive any message" in { fixture =>
+    val topic = getNextTopic
+    val topicInfoList = TopicInfoList(List(TopicInfo(topic)))
+    val testDataSet = createSetWithTestData(topic, countOfTestElementForTopic)
+    val producerRecords = testDataSet.map {
+      case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
+    }
+
+    fixture.producer.send(producerRecords.toList)
+
+    val testDataSetSize = testDataSet.size
+
+    testForNonEmptyTopics(
+      fixture.kafkaEndpoints,
+      groupId,
+      topicInfoList,
+      retrievedCount = testDataSetSize/2,
+      expectedCount = testDataSetSize/2
+    )
+
+    testForNonEmptyTopics(
+      fixture.kafkaEndpoints,
+      groupId,
+      topicInfoList,
+      retrievedCount = testDataSetSize,
+      expectedCount = testDataSetSize - testDataSetSize/2
+    )
+
+    testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
+  }
+
+  it should "process some part of events from multiple Kafka topics, save checkpoint data (indicating what events have been processed), " +
+    "repeat it for remains part of events, run from a scratch and not receive any message" in { fixture =>
+    val topic = getNextTopic
+    val topic2 = getNextTopic
+    val topicInfoList = TopicInfoList(List(TopicInfo(topic), TopicInfo(topic2)))
+    val testDataSet = createSetWithTestData(topic, countOfTestElementForTopic) ++ createSetWithTestData(topic2, countOfTestElementForTopic)
+    val producerRecords = testDataSet.map {
+      case (topicData, value) => new ProducerRecord[String, String](topicData, 0, "key", value)
+    }
+
+    fixture.producer.send(producerRecords.toList)
+
+    val testDataSetSize = testDataSet.size
+
+    testForNonEmptyTopics(
+      fixture.kafkaEndpoints,
+      groupId,
+      topicInfoList,
+      retrievedCount = testDataSetSize/2,
+      expectedCount = testDataSetSize/2
+    )
+
+    testForNonEmptyTopics(
+      fixture.kafkaEndpoints,
+      groupId,
+      topicInfoList,
+      retrievedCount = testDataSetSize,
+      expectedCount = testDataSetSize - testDataSetSize/2
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -102,13 +174,14 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
   private def testForNonEmptyTopics(kafkaEndpoints: String,
                                     consumerGroupId: String,
                                     topicInfoList: TopicInfoList,
-                                    retrieveCount: Int): Unit = {
+                                    retrievedCount: Int,
+                                    expectedCount: Int): Unit = {
 
     val testEntities = createTestEntities[String, String, String](
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
-      retrieveCount
+      retrievedCount
     )
 
     testEntities.checkpointInfoProcessor.load()
@@ -120,7 +193,7 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
       x.data
     }
 
-    assert(actualTestDataList.toSet.size == retrieveCount)
+    assert(actualTestDataList.toSet.size == expectedCount)
 
     testEntities.checkpointInfoProcessor.save(outputEnvelopes)
 
