@@ -55,8 +55,8 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
     val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = mockConsumer
 
-      override def covertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
-        super.covertToTopicPartition(topicInfoList)
+      override def convertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
+        super.convertToTopicPartition(topicInfoList)
       }
     }
 
@@ -158,12 +158,12 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
     assert(fixture.mockConsumer.closed())
   }
 
-  "covertToTopicPartition" should "create list of TopicPartition using partitions information " +
+  "convertToTopicPartition" should "create list of TopicPartition using partitions information " +
     "which retrieves from Kafka based on TopicInfoList" in { fixture =>
     val expectedTopicPartitions = createPartitions(fixture.topicInfoList, fixture.mockConsumer)
-    val covertToTopicPartition = PrivateMethod[List[TopicPartition]]('covertToTopicPartition)
+    val convertToTopicPartition = PrivateMethod[List[TopicPartition]]('convertToTopicPartition)
 
-    def convert(topicList: TopicInfoList): List[TopicPartition] = fixture.testConsumer invokePrivate covertToTopicPartition(
+    def convert(topicList: TopicInfoList): List[TopicPartition] = fixture.testConsumer invokePrivate convertToTopicPartition(
       topicList
     )
 

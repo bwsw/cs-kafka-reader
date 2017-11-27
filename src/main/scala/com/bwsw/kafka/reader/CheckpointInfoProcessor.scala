@@ -19,6 +19,7 @@
 package com.bwsw.kafka.reader
 
 import com.bwsw.kafka.reader.entities.{OutputEnvelope, TopicInfoList, TopicPartitionInfo, TopicPartitionInfoList}
+import org.slf4j.LoggerFactory
 
 /**
   * Class is responsible for saving and loading checkpoint data for Kafka
@@ -29,16 +30,18 @@ import com.bwsw.kafka.reader.entities.{OutputEnvelope, TopicInfoList, TopicParti
   * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
   */
 class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Consumer[K,V]) {
-
+  private val logger = LoggerFactory.getLogger(this.getClass)
   /**
     * Saves checkpoint data with help of embedded tools of Kafka
     *
     * @param envelopes list of OutputEnvelope entities
     */
   def save(envelopes: List[OutputEnvelope[T]]): Unit = {
+    logger.trace(s"save(envelopes: $envelopes)")
     val partitionsInfo = envelopes.map { envelope =>
       TopicPartitionInfo(envelope.topic, envelope.partition, envelope.offset + 1)
     }
+    logger.debug(s"PartitionInfo list: '$partitionsInfo' based on OutputEnvelope entities: '$envelopes' will be committed" )
     consumer.commit(TopicPartitionInfoList(partitionsInfo))
   }
 
@@ -47,6 +50,7 @@ class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Con
     *
     */
   def load(): Unit = {
+    logger.trace("load()")
     consumer.assign(topicInfoList)
   }
 }
