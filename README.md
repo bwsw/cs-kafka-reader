@@ -14,11 +14,11 @@ Getting Started
 ---------------
 Implement your instance of EventHandler and use other class such as EventManager on diagram.
 See: \
-![Sequence](docs/diagrams/kafka-reader_class.png)
+![Sequence](docs/diagrams/kafka-reader_sequence.png)
 where: \
     * `K` - type of ConsumerRecord key \
     * `V` - type of ConsumerRecord value \
-    * `T` - type of data after handle event by instance of EventHandler implementation \
+    * `T` - type of data after handle a ConsumerRecord by the instance of EventHandler implementation \
       
 
 Example Usage
