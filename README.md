@@ -1,5 +1,9 @@
 # cs-kafka-reader
-Kafka CloudStack Events Reader
+Kafka CloudStack Events Reader and Evaluator Framework
+
+The aim of the library is the convenient handling of Kafka messages. It provides next mechanism:
+1. Buffering of the messages for variation count of handling messages without changing a Consumer properties
+2. Implementation of the logic of storing consumer offsets to any place
 
 Common realization of wrapping KafkaConsumer for help with handling of Kafka records
 
@@ -12,7 +16,7 @@ TODO: "libraryDependencies += "
 ```
 Getting Started
 ---------------
-Implement your instance of EventHandler and use other class such as EventManager on diagram.
+Implement your instance of EventHandler and use other class such as EventManager on the diagram.
 See: \
 ![Sequence](docs/diagrams/kafka-reader_sequence.png)
 where: \
@@ -23,7 +27,7 @@ where: \
 
 Example Usage
 -------------
-Sample example for writing message from Kafka to console in Future:
+Sample example for writing messages from Kafka to console in Future:
 ```scala
 class SimpleEventHandler(messageQueue: MessageQueue[String,String], messageCount: Int)
   extends EventHandler[String,String,Future[Unit]](messageQueue, messageCount) {
@@ -74,7 +78,7 @@ object EventManager {
 Versioning
 ----------
 
-Version of org.apache.kafka library using for it
+It uses the version of the library org.apache.kafka
 
 License
 -------
