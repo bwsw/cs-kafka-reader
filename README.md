@@ -1,7 +1,7 @@
 # cs-kafka-reader
 Kafka CloudStack Events Reader and Evaluator Framework
 
-The aim of the library is the convenient handling of Kafka messages. It provides the following mechanisms to:
+The aim of the library is the convenient handling of Kafka messages. It provides the mechanisms to:
 1. Buffer the messages to vary a count of processing messages without changing a consumer properties
 2. Implement the logic of storing consumer offsets to any place
 
@@ -24,7 +24,7 @@ where: \
 
 ## Example Usage
 
-The example below shows how to print messages from Kafka in the console that executes in Future:
+The example below shows how to print messages from Kafka to the console. The call to the method is performed in Future:
 ```scala
 class SimpleEventHandler(messageQueue: MessageQueue[String,String], messageCount: Int)
   extends EventHandler[String,String,Future[Unit]](messageQueue, messageCount) {
@@ -38,6 +38,7 @@ class SimpleEventHandler(messageQueue: MessageQueue[String,String], messageCount
 
 }
 ```
+According to the diagram above the main class looks like this:
 ```scala
 object EventManager {
     
