@@ -9,7 +9,7 @@ The aim of the library is the convenient handling of Kafka messages. It provides
 
 Add the following to your `build.sbt`
 ```scala
-TODO: "libraryDependencies += "
+libraryDependencies += "com.bwsw" %% "kafka-reader" % "0.10.1"
 ```
 ## Getting Started
 
