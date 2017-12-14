@@ -21,6 +21,7 @@ lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
     name := "kafka-reader",
+    organization := "com.bwsw",
     version := "0.10.1",
     scalaVersion := "2.12.4",
     libraryDependencies ++= Seq(
