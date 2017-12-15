@@ -30,6 +30,7 @@ if [ -n "$GIT_BRANCH" ]; then
         echo "------- Publish to Maven repository ---------"
         echo "---------------------------------------------"
 
-        sbt publish
+        sbt publishSigned
+        sbt sonatypeRelease
 	fi
 fi
