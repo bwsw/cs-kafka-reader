@@ -21,12 +21,14 @@ lazy val root = (project in file("."))
   .configs(IntegrationTest)
   .settings(
     name := "kafka-reader",
-    version := "0.10.1",
+    organization := "com.bwsw",
+    version := "0.10.2",
+
     scalaVersion := "2.12.4",
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.3.0",
       "org.slf4j" % "slf4j-api" % "1.7.25",
-      ("org.apache.kafka" % "kafka_2.12" % "0.10.1.1").exclude("org.slf4j", "slf4j-api"),
+      ("org.apache.kafka" % "kafka_2.12" % "0.10.2.1").exclude("org.slf4j", "slf4j-api"),
       "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
     ),
     pomIncludeRepository := { _ => false },
