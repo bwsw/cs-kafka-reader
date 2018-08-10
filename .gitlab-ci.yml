@@ -1,0 +1,69 @@
+stages:
+  - check-style
+  - test
+  - mirror
+
+
+variables:
+  UPSTREAM_REPOSITORY: "git@github.com:bwsw/kafka-reader.git"
+  UPSTREAM_BRANCH: "master"
+
+
+check-style:
+  stage: check-style
+  image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
+  script:
+    - sbt scalastyle test:scalastyle it:scalastyle
+  coverage: '/Coverage was \[\d+.\d+\%\]/'
+  tags:
+    - cs-eco-builder
+    - build-in-docker
+
+
+test:
+  stage: test
+  image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
+  script:
+    - sbt clean coverage test coverageReport
+  tags:
+    - cs-eco-builder
+    - build-in-docker
+
+
+integration-test:
+  stage: test
+  image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
+  services:
+    - spotify/kafka
+  variables:
+    ADVERTISED_HOST: spotify-kafka
+    KAFKA_ENDPOINTS: "${ADVERTISED_HOST}:9092"
+  script:
+    - sbt it:test
+  tags:
+    - cs-eco-builder
+    - build-in-docker
+
+
+mirror-master:
+  stage: mirror
+  variables:
+    GIT_SUBMODULE_STRATEGY: none
+    GIT_STRATEGY: clone
+  cache: {}
+  only:
+    - master
+  script:
+    - mkdir -p ~/.ssh
+    - echo $GITHUB_MIRROR_PRIVATE | base64 -d > ~/.ssh/id_rsa
+    - echo $GITHUB_MIRROR_PUBLIC > ~/.ssh/id_rsa.pub
+    - ssh-keyscan -t rsa,dsa,ecdsa github.com >> ~/.ssh/known_hosts
+    - chmod -R go-rwx ~/.ssh
+    - git remote add mirror $UPSTREAM_REPOSITORY
+    - git remote show mirror
+    - git fetch mirror
+    - git push --progress mirror HEAD:$UPSTREAM_BRANCH
+  tags:
+    - cs-eco-builder
+    - build-in-docker
+
