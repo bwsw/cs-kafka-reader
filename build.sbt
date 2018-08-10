@@ -29,7 +29,8 @@ lazy val root = (project in file("."))
       "com.typesafe" % "config" % "1.3.0",
       "org.slf4j" % "slf4j-api" % "1.7.25",
       ("org.apache.kafka" % "kafka_2.12" % "0.10.2.1").exclude("org.slf4j", "slf4j-api"),
-      "org.scalatest" %% "scalatest" % "3.0.1" % "it,test"
+      "org.scalatest" %% "scalatest" % "3.0.1" % "it,test",
+      "net.manub" %% "scalatest-embedded-kafka" % "1.1.1" % "it,test",
     ),
     pomIncludeRepository := { _ => false },
     licenses := Seq("Apache 2" -> url("http://www.apache.org/licenses/LICENSE-2.0")),
