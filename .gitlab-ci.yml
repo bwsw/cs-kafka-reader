@@ -23,9 +23,7 @@ test:
 mirror-master:
   stage: mirror
   variables:
-    GIT_SUBMODULE_STRATEGY: none
     GIT_STRATEGY: clone
-  cache: {}
   only:
     - master
   script:
