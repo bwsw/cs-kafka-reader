@@ -1,5 +1,4 @@
 stages:
-  - check-style
   - test
   - mirror
 
@@ -9,32 +8,13 @@ variables:
   UPSTREAM_BRANCH: "master"
 
 
-check-style:
-  stage: check-style
-  image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
-  script:
-    - sbt scalastyle test:scalastyle it:scalastyle
-  tags:
-    - cs-eco-builder
-    - build-in-docker
-
-
 test:
   stage: test
   image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
   script:
-    - sbt clean coverage test coverageReport
+    - sbt scalastyle test:scalastyle it:scalastyle
+    - sbt clean coverage test it:test coverageReport
   coverage: '/Coverage was \[\d+.\d+\%\]/'
-  tags:
-    - cs-eco-builder
-    - build-in-docker
-
-
-integration-test:
-  stage: test
-  image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
-  script:
-    - sbt it:test
   tags:
     - cs-eco-builder
     - build-in-docker
@@ -61,4 +41,3 @@ mirror-master:
   tags:
     - cs-eco-builder
     - build-in-docker
-
