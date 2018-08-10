@@ -1,4 +1,8 @@
 # cs-kafka-reader
+
+[![pipeline status](https://git.bw-sw.com/cloudstack-ecosystem/kafka-reader/badges/master/pipeline.svg)](https://git.bw-sw.com/cloudstack-ecosystem/kafka-reader/commits/master)
+[![coverage report](https://git.bw-sw.com/cloudstack-ecosystem/kafka-reader/badges/master/coverage.svg)](https://git.bw-sw.com/cloudstack-ecosystem/kafka-reader/commits/master)
+
 Kafka CloudStack Events Reader and Evaluator Framework
 
 The aim of the library is the convenient handling of Kafka messages. It provides the mechanisms to:

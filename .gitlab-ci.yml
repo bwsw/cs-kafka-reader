@@ -14,7 +14,6 @@ check-style:
   image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
   script:
     - sbt scalastyle test:scalastyle it:scalastyle
-  coverage: '/Coverage was \[\d+.\d+\%\]/'
   tags:
     - cs-eco-builder
     - build-in-docker
@@ -25,6 +24,7 @@ test:
   image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
   script:
     - sbt clean coverage test coverageReport
+  coverage: '/Coverage was \[\d+.\d+\%\]/'
   tags:
     - cs-eco-builder
     - build-in-docker
@@ -35,6 +35,7 @@ integration-test:
   image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
   variables:
     ADVERTISED_HOST: spotify-kafka
+    ADVERTISED_PORT: 9092
     KAFKA_ENDPOINTS: "spotify-kafka:9092"
   services:
     - spotify/kafka
