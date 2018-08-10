@@ -33,12 +33,6 @@ test:
 integration-test:
   stage: test
   image: hseeberger/scala-sbt:8u151-2.12.4-1.0.4
-  variables:
-    ADVERTISED_HOST: spotify-kafka
-    ADVERTISED_PORT: 9092
-    KAFKA_ENDPOINTS: "spotify-kafka:9092"
-  services:
-    - spotify/kafka
   script:
     - sbt it:test
   tags:

@@ -21,13 +21,17 @@ package com.bwsw.kafka.reader
 import java.util.concurrent.atomic.AtomicBoolean
 
 import com.bwsw.kafka.reader.entities.{TopicInfo, TopicInfoList}
+import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.scalatest.{Outcome, fixture}
 
 import scala.util.{Failure, Success, Try}
 
 
-class KafkaReaderIntegrationTest extends fixture.FlatSpec {
+class KafkaReaderIntegrationTest
+  extends fixture.FlatSpec
+    with EmbeddedKafka {
+
   val groupId = "group1"
   val dummyFlag = new AtomicBoolean(true)
   var topicNumber = 0
@@ -36,21 +40,23 @@ class KafkaReaderIntegrationTest extends fixture.FlatSpec {
   case class FixtureParam(producer: Producer[String, String], kafkaEndpoints: String)
 
   def withFixture(test: OneArgTest): Outcome = {
-    val kafkaEndpoints = ApplicationConfig.getRequiredString("app.kafka.endpoints")
+    withRunningKafkaOnFoundPort(EmbeddedKafkaConfig(kafkaPort = 0, zooKeeperPort = 0)) { kafkaConfig =>
+      val kafkaEndpoints = s"localhost:${kafkaConfig.kafkaPort}"
 
-    val producer = new Producer[String, String](kafkaEndpoints)
+      val producer = new Producer[String, String](kafkaEndpoints)
 
-    val theFixture = FixtureParam(producer, kafkaEndpoints)
+      val theFixture = FixtureParam(producer, kafkaEndpoints)
 
-    Try {
-      withFixture(test.toNoArgTest(theFixture))
-    } match {
-      case Success(x) =>
-        Try(producer.close())
-        x
-      case Failure(e: Throwable) =>
-        producer.close()
-        throw e
+      Try {
+        withFixture(test.toNoArgTest(theFixture))
+      } match {
+        case Success(x) =>
+          Try(producer.close())
+          x
+        case Failure(e: Throwable) =>
+          producer.close()
+          throw e
+      }
     }
   }
 

@@ -83,16 +83,7 @@ Run tests: `sbt test`
 
 ### Integration tests
 
-1. Add local environment variables:
-    * `KAFKA_HOST` - host of Kafka, for example - "localhost"
-    * `KAFKA_PORT` - port of Kafka, for example - "9092"
-    * `KAFKA_ENDPOINTS` - $KAFKA_HOST:$KAFKA_PORT
-2. Run Kafka server in docker container:
-```bash
-    docker run -d --rm -p 2181:2181 -p $KAFKA_PORT:$KAFKA_PORT \ 
-    --env ADVERTISED_HOST=$KAFKA_HOST --env ADVERTISED_PORT=$KAFKA_PORT spotify/kafka
-```
-3. Run tests: `sbt it:test`
+Run tests: `sbt it:test`
 
 ## Versioning
 
