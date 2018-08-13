@@ -17,7 +17,7 @@
 * under the License.
 */
 
-lazy val root = (project in file("."))
+lazy val kafkaReader = (project in file("."))
   .configs(IntegrationTest)
   .settings(
     name := "kafka-reader",
