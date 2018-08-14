@@ -22,7 +22,7 @@ lazy val kafkaReader = (project in file("."))
   .settings(
     name := "kafka-reader",
     organization := "com.bwsw",
-    version := "0.10.2",
+    version := "0.10.3-SNAPSHOT",
 
     scalaVersion := "2.12.4",
     libraryDependencies ++= Seq(

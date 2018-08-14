@@ -35,7 +35,8 @@ import scala.collection.JavaConverters._
   * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
   * @param settings settings for Kafka Consumer
   */
-class Consumer[K,V](settings: Consumer.Settings) {
+class Consumer[K, V](settings: Consumer.Settings) {
+
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val props = createConsumerConfig()
   protected val consumer: org.apache.kafka.clients.consumer.Consumer[K, V] = new KafkaConsumer[K, V](props)
@@ -61,21 +62,37 @@ class Consumer[K,V](settings: Consumer.Settings) {
     */
   def assignWithOffsets(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
     logger.trace(s"assignWithOffsets(topicPartitionInfoList: $topicPartitionInfoList)")
-    val topicPartitionsWithOffsets = topicPartitionInfoList.entities.map {
+    val offsets = topicPartitionInfoList.entities.map {
       case TopicPartitionInfo(topic, partition, offset) =>
-        (new TopicPartition(topic, partition), offset)
+        TopicWithPartition(topic, partition) -> Offset.Concrete(offset)
+    }.toMap
+
+    assignWithOffsets(offsets)
+  }
+
+  /**
+    * Assign a list of topic/partition to this consumer and
+    * use "seek()" method to override the fetch offsets that the consumer will use on the next poll
+    *
+    * @param offsets contains pairs (topic, partition) with offsets
+    */
+  def assignWithOffsets(offsets: Map[TopicWithPartition, Offset]): Unit = {
+    logger.trace(s"assignWithOffsets(offsets: $offsets)")
+    val topicPartitionsWithOffsets = offsets.map {
+      case (topicPartition, offset) =>
+        topicPartition.toTopicPartition -> offset
     }
 
-    val topicPartitions = topicPartitionsWithOffsets.map {
-      case (partition, offset) => partition
-    }
+    val topicPartitions = topicPartitionsWithOffsets.keys
 
     logger.debug(s"Assign the topic partitions: $topicPartitions")
     consumer.assign(topicPartitions.asJavaCollection)
 
     logger.debug(s"Seek topic partitions with offsets: $topicPartitionsWithOffsets")
     topicPartitionsWithOffsets.foreach {
-      case (partition, offset) => consumer.seek(partition, offset)
+      case (partition, Offset.Beginning) => consumer.seekToBeginning(Seq(partition).asJava)
+      case (partition, Offset.End) => consumer.seekToEnd(Seq(partition).asJava)
+      case (partition, Offset.Concrete(offset)) => consumer.seek(partition, offset)
     }
   }
 
@@ -109,7 +126,7 @@ class Consumer[K,V](settings: Consumer.Settings) {
   /**
     * @see [[org.apache.kafka.clients.consumer.KafkaConsumer#poll(timeout: Long)]]
     */
-  def poll(): ConsumerRecords[K,V] = {
+  def poll(): ConsumerRecords[K, V] = {
     logger.trace("poll()")
     consumer.poll(settings.pollTimeout)
   }
@@ -149,23 +166,24 @@ class Consumer[K,V](settings: Consumer.Settings) {
 }
 
 object Consumer {
+
   /**
     * Case class is responsible for keeping Consumer properties
     *
-    * @param brokers Kafka endpoints
-    * @param groupId unique string that identifies the consumer group this consumer belongs to
-    * @param pollTimeout time during which the records are extracted from kafka
-    * @param autoOffsetReset what to do when there is no initial offset in Kafka or if the current offset does not exist
-    *                        any more on the server (e.g. because that data has been deleted):
-    *                        earliest: automatically reset the offset to the earliest offset
-    *                        latest: automatically reset the offset to the latest offset
-    *                        none: throw exception to the consumer if no previous offset is found for the consumer's group
-    *                        anything else: throw exception to the consumer
-    * @param enableAutoCommit if true the consumer's offset will be periodically committed in the background
+    * @param brokers            Kafka endpoints
+    * @param groupId            unique string that identifies the consumer group this consumer belongs to
+    * @param pollTimeout        time during which the records are extracted from kafka
+    * @param autoOffsetReset    what to do when there is no initial offset in Kafka or if the current offset does not exist
+    *                           any more on the server (e.g. because that data has been deleted):
+    *                           earliest: automatically reset the offset to the earliest offset
+    *                           latest: automatically reset the offset to the latest offset
+    *                           none: throw exception to the consumer if no previous offset is found for the consumer's group
+    *                           anything else: throw exception to the consumer
+    * @param enableAutoCommit   if true the consumer's offset will be periodically committed in the background
     * @param autoCommitInterval frequency in milliseconds that the consumer offsets are auto-committed to Kafka if
     *                           "enableAutoCommit" is set to true
-    * @param keyDeserializer deserializer class for ConsumerRecord key that implements the "Deserializer" interface
-    * @param valueDeserializer deserializer class for ConsumerRecord value that implements the "Deserializer" interface
+    * @param keyDeserializer    deserializer class for ConsumerRecord key that implements the "Deserializer" interface
+    * @param valueDeserializer  deserializer class for ConsumerRecord value that implements the "Deserializer" interface
     */
   case class Settings(brokers: String,
                       groupId: String,
@@ -175,4 +193,5 @@ object Consumer {
                       autoCommitInterval: Int = 5000,
                       keyDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer",
                       valueDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer")
+
 }
