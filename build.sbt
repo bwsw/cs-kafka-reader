@@ -24,7 +24,7 @@ lazy val root = (project in file("."))
     organization := "com.bwsw",
     version := "0.10.2",
 
-    scalaVersion := "2.12.4",
+    scalaVersion := "2.12.6",
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.3.0",
       "org.slf4j" % "slf4j-api" % "1.7.25",
