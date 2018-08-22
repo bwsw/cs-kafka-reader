@@ -26,33 +26,45 @@ import org.scalatest._
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
+class ConsumerTestSuite
+  extends fixture.FlatSpec
+    with PrivateMethodTester
+    with Matchers {
 
   case class FixtureParam(mockConsumer: MockConsumer[String, String],
                           testConsumer: Consumer[String, String],
                           topicInfoList: TopicInfoList,
                           topicPartitionInfoList: TopicPartitionInfoList)
 
+  private val topic1 = "topic1"
+  private val topic2 = "topic2"
+  private val infoList: List[TopicInfo] = List(
+    TopicInfo(topic = topic1),
+    TopicInfo(topic = topic2)
+  )
+  private val topicInfoList = TopicInfoList(infoList)
+
+  private val partition1 = 1
+  private val partition2 = 2
+  private val partition3 = 3
+
+  private val offset1 = 12L
+  private val offset2 = 34L
+  private val offset3 = 56L
+
+  private val firstTopicPartition = TopicPartitionInfo(topic1, partition = partition1, offset = offset1)
+  private val secondTopicPartition = TopicPartitionInfo(topic2, partition = partition2, offset = offset2)
+  private val thirdTopicPartition = TopicPartitionInfo(topic2, partition = partition3, offset = offset3)
+
+  private val topicPartitionInfoList: TopicPartitionInfoList = TopicPartitionInfoList(
+    List(firstTopicPartition, secondTopicPartition, thirdTopicPartition)
+  )
+
+
   def withFixture(test: OneArgTest): Outcome = {
-    val topic1 = "topic1"
-    val topic2 = "topic2"
-    val infoList: List[TopicInfo] = List(
-      TopicInfo(topic = topic1),
-      TopicInfo(topic = topic2)
-    )
-    val topicInfoList = TopicInfoList(infoList)
-
-    val firstTopicPartition = TopicPartitionInfo(topic1, partition = 0, offset = 0)
-    val secondTopicPartition = TopicPartitionInfo(topic2, partition = 1, offset = 1)
-    val thirdTopicPartition = TopicPartitionInfo(topic2, partition = 2, offset = 2)
-
-    val topicPartitionInfoList: TopicPartitionInfoList = TopicPartitionInfoList(
-      List(firstTopicPartition, secondTopicPartition, thirdTopicPartition)
-    )
-
     val mockConsumer = new MockConsumer[String, String](OffsetResetStrategy.EARLIEST)
 
-    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
+    val testConsumer: Consumer[String, String] = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
       override protected val consumer: MockConsumer[String, String] = mockConsumer
 
       override def convertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
@@ -108,6 +120,36 @@ class ConsumerTestSuite extends fixture.FlatSpec with PrivateMethodTester {
     assert(offsets.toSet == fixture.topicPartitionInfoList.entities.map(_.offset).toSet)
 
     fixture.mockConsumer.close()
+  }
+
+  it should "assign a list of topic/partition to specified offsets properly" in { fixture =>
+    import fixture._
+    fixture.mockConsumer.updateBeginningOffsets(
+      Map(new TopicPartition(topic2, partition2) -> Long.box(offset2)).asJava
+    )
+    fixture.mockConsumer.updateEndOffsets(
+      Map(new TopicPartition(topic2, partition3) -> Long.box(offset3)).asJava
+    )
+
+    val offsets = Map(
+      TopicWithPartition(topic1, partition1) -> Offset.Concrete(offset1),
+      TopicWithPartition(topic2, partition2) -> Offset.Beginning,
+      TopicWithPartition(topic2, partition3) -> Offset.End
+    )
+
+    val expectedOffsets = Map(
+      TopicWithPartition(topic1, partition1) -> offset1,
+      TopicWithPartition(topic2, partition2) -> offset2,
+      TopicWithPartition(topic2, partition3) -> offset3
+    )
+    testConsumer.assignWithOffsets(offsets)
+
+    val topicPartitions = fixture.mockConsumer.assignment().asScala.toList
+    val actualOffsets = topicPartitions.map { x =>
+      TopicWithPartition(x.topic(), x.partition()) -> fixture.mockConsumer.position(x)
+    }.toMap
+
+    actualOffsets shouldEqual expectedOffsets
   }
 
   "poll" should "retrieve ConsumerRecord from specified Kafka topic partition" in { fixture =>
