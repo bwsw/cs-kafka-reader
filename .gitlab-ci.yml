@@ -10,7 +10,7 @@ variables:
 
 test:
   stage: test
-  image: hseeberger/scala-sbt:8u171-2.12.6-1.2.1
+  image: hseeberger/scala-sbt:8u171_2.12.6_1.2.1
   script:
     - sbt scalastyle test:scalastyle it:scalastyle
     - sbt clean coverage test it:test coverageReport
