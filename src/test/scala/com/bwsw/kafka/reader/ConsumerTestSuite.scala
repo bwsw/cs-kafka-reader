@@ -44,6 +44,7 @@ class ConsumerTestSuite
   )
   private val topicInfoList = TopicInfoList(infoList)
 
+  private val partition0 = 0
   private val partition1 = 1
   private val partition2 = 2
   private val partition3 = 3
@@ -91,7 +92,7 @@ class ConsumerTestSuite
     createPartitions(fixture.topicInfoList, fixture.mockConsumer)
 
     fixture.mockConsumer.updateBeginningOffsets(fixture.topicInfoList.entities.map { x =>
-      new TopicPartition(x.topic, 0) -> new java.lang.Long(offset)
+      new TopicPartition(x.topic, partition0) -> new java.lang.Long(offset)
     }.toMap.asJava)
 
     fixture.testConsumer.assign(fixture.topicInfoList)
@@ -153,7 +154,6 @@ class ConsumerTestSuite
   }
 
   "poll" should "retrieve ConsumerRecord from specified Kafka topic partition" in { fixture =>
-    val topicPartition = fixture.topicPartitionInfoList.entities.head
     val expectedRecords = fixture.topicPartitionInfoList.entities.map { x =>
       new ConsumerRecord[String, String](
         x.topic,
@@ -213,10 +213,13 @@ class ConsumerTestSuite
   }
 
   private def createPartitions(topicList: TopicInfoList, mockConsumer: MockConsumer[String, String]): List[TopicPartition] = {
-    val partition = 0
     topicList.entities.map { topicInfo =>
-      mockConsumer.updatePartitions(topicInfo.topic, List(new PartitionInfo(topicInfo.topic, partition, Node.noNode(), Array(Node.noNode()), Array(Node.noNode()))).asJava)
-      new TopicPartition(topicInfo.topic, partition)
+      mockConsumer.updatePartitions(topicInfo.topic, List(new PartitionInfo(topicInfo.topic,
+        partition0,
+        Node.noNode(),
+        Array(Node.noNode()),
+        Array(Node.noNode()))).asJava)
+      new TopicPartition(topicInfo.topic, partition0)
     }
   }
 }

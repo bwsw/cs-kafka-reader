@@ -36,6 +36,7 @@ class KafkaReaderIntegrationTest
   val dummyFlag = new AtomicBoolean(true)
   var topicNumber = 0
   val countOfTestElementForTopic = 5
+  val pollTimeout = 3000
 
   case class FixtureParam(producer: Producer[String, String], kafkaEndpoints: String)
 
@@ -237,7 +238,7 @@ class KafkaReaderIntegrationTest
                                         topicInfoList: TopicInfoList,
                                         countOfMessages: Int): TestEntities[K,V,T] = {
 
-    val consumer = new Consumer[K,V](Consumer.Settings(kafkaEndpoints, consumerGroupId, 3000))
+    val consumer = new Consumer[K,V](Consumer.Settings(kafkaEndpoints, consumerGroupId, pollTimeout))
 
     val checkpointInfoProcessor = new CheckpointInfoProcessor[K,V,T](
       topicInfoList,
