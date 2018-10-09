@@ -23,6 +23,7 @@ import java.util.Properties
 import com.bwsw.kafka.reader.entities._
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
+import org.apache.kafka.common.serialization.Deserializer
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -35,24 +36,10 @@ import scala.collection.JavaConverters._
   * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
   * @param settings settings for Kafka Consumer
   */
-class Consumer[K, V](settings: Consumer.Settings) {
+class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K, V],
+                     settings: Consumer.Settings) {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val props = createConsumerConfig()
-  protected val consumer: org.apache.kafka.clients.consumer.Consumer[K, V] = new KafkaConsumer[K, V](props)
-
-  private def createConsumerConfig(): Properties = {
-    val props = new Properties()
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.brokers)
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, settings.groupId)
-    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, settings.autoOffsetReset)
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, settings.enableAutoCommit.toString)
-    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, settings.autoCommitInterval.toString)
-    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "30000")
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, settings.keyDeserializer)
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, settings.valueDeserializer)
-    props
-  }
 
   /**
     * Assign a list of topic/partition to this consumer and
@@ -86,13 +73,13 @@ class Consumer[K, V](settings: Consumer.Settings) {
     val topicPartitions = topicPartitionsWithOffsets.keys
 
     logger.debug(s"Assign the topic partitions: $topicPartitions")
-    consumer.assign(topicPartitions.asJavaCollection)
+    kafkaConsumer.assign(topicPartitions.asJavaCollection)
 
     logger.debug(s"Seek topic partitions with offsets: $topicPartitionsWithOffsets")
     topicPartitionsWithOffsets.foreach {
-      case (partition, Offset.Beginning) => consumer.seekToBeginning(Seq(partition).asJava)
-      case (partition, Offset.End) => consumer.seekToEnd(Seq(partition).asJava)
-      case (partition, Offset.Concrete(offset)) => consumer.seek(partition, offset)
+      case (partition, Offset.Beginning) => kafkaConsumer.seekToBeginning(Seq(partition).asJava)
+      case (partition, Offset.End) => kafkaConsumer.seekToEnd(Seq(partition).asJava)
+      case (partition, Offset.Concrete(offset)) => kafkaConsumer.seek(partition, offset)
     }
   }
 
@@ -107,19 +94,19 @@ class Consumer[K, V](settings: Consumer.Settings) {
     val topicPartitions = convertToTopicPartition(topicInfoList)
     if (topicPartitions.nonEmpty) {
       logger.debug(s"Assign the topic partitions: $topicPartitions")
-      consumer.assign(topicPartitions.asJavaCollection)
+      kafkaConsumer.assign(topicPartitions.asJavaCollection)
     } else {
       logger.error(s"No one of topics: $topicInfoList exists, NoSuchElementException will be thrown")
       throw new NoSuchElementException(s"No one of topics: $topicInfoList exists")
     }
 
     val topicPartitionsWithOffsets = topicPartitions.map { partition =>
-      (partition, consumer.position(partition))
+      (partition, kafkaConsumer.position(partition))
     }
 
     logger.debug(s"Seek topic partitions with offsets: $topicPartitionsWithOffsets.")
     topicPartitionsWithOffsets.foreach {
-      case (partition, offset) => consumer.seek(partition, offset)
+      case (partition, offset) => kafkaConsumer.seek(partition, offset)
     }
   }
 
@@ -128,7 +115,7 @@ class Consumer[K, V](settings: Consumer.Settings) {
     */
   def poll(): ConsumerRecords[K, V] = {
     logger.trace("poll()")
-    consumer.poll(settings.pollTimeout)
+    kafkaConsumer.poll(settings.pollTimeout)
   }
 
   /**
@@ -140,7 +127,7 @@ class Consumer[K, V](settings: Consumer.Settings) {
       new TopicPartition(topicPartitionInfo.topic, topicPartitionInfo.partition) -> new OffsetAndMetadata(topicPartitionInfo.offset, "")
     }.toMap.asJava
     logger.debug(s"Data for commit is: $topicPartitionsWithMetadata")
-    consumer.commitSync(topicPartitionsWithMetadata)
+    kafkaConsumer.commitSync(topicPartitionsWithMetadata)
   }
 
   /**
@@ -148,12 +135,12 @@ class Consumer[K, V](settings: Consumer.Settings) {
     */
   def close(): Unit = {
     logger.trace("close()")
-    consumer.close()
+    kafkaConsumer.close()
   }
 
   protected def convertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
     logger.trace(s"convertToTopicPartition(topicInfoList: $topicInfoList)")
-    val topicPartitions = consumer.listTopics().asScala.toList.collect {
+    val topicPartitions = kafkaConsumer.listTopics().asScala.toList.collect {
       case (consumerTopic, partitionInfoList) if topicInfoList.entities.map(_.topic).contains(consumerTopic) =>
         partitionInfoList.asScala.map { partitionInfo =>
           new TopicPartition(consumerTopic, partitionInfo.partition())
@@ -187,11 +174,53 @@ object Consumer {
     */
   case class Settings(brokers: String,
                       groupId: String,
-                      pollTimeout: Int = 2000,
+                      pollTimeout: Int = 2000, //scalastyle:ignore
                       autoOffsetReset: String = "earliest",
                       enableAutoCommit: Boolean = false,
-                      autoCommitInterval: Int = 5000,
+                      autoCommitInterval: Int = 5000, //scalastyle:ignore
                       keyDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer",
                       valueDeserializer: String = "org.apache.kafka.common.serialization.StringDeserializer")
+
+  /**
+    * Creates consumer
+    *
+    * @param settings settings for Kafka Consumer
+    */
+  def apply[K, V](settings: Settings): Consumer[K, V] = {
+    val props = createConsumerConfig(settings)
+    val kafkaConsumer = new KafkaConsumer[K, V](props)
+
+    new Consumer[K, V](kafkaConsumer, settings)
+  }
+
+  /**
+    * Creates consumer
+    *
+    * @param settings          settings for Kafka Consumer
+    * @param keyDeserializer   key deserializer
+    * @param valueDeserializer value deserializer
+    */
+  def apply[K, V](settings: Settings,
+                  keyDeserializer: Deserializer[K],
+                  valueDeserializer: Deserializer[V]): Consumer[K, V] = {
+    val props = createConsumerConfig(settings)
+    val kafkaConsumer = new KafkaConsumer[K, V](props, keyDeserializer, valueDeserializer)
+
+    new Consumer[K, V](kafkaConsumer, settings)
+  }
+
+
+  private def createConsumerConfig[V, K](settings: Settings) = {
+    val props = new Properties()
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, settings.brokers)
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, settings.groupId)
+    props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, settings.autoOffsetReset)
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, settings.enableAutoCommit.toString)
+    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, settings.autoCommitInterval.toString)
+    props.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, "30000")
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, settings.keyDeserializer)
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, settings.valueDeserializer)
+    props
+  }
 
 }

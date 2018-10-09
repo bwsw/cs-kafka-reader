@@ -86,7 +86,6 @@ class KafkaReaderIntegrationTest
   }
 
 
-
   it should "process all events from multiple Kafka topics, save checkpoint data (indicating what events have been processed), " +
     "run from a scratch and not receive any message" in { fixture =>
     val topic = getNextTopic
@@ -130,8 +129,8 @@ class KafkaReaderIntegrationTest
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      retrievedCount = testDataSetSize/2,
-      expectedCount = testDataSetSize/2
+      retrievedCount = testDataSetSize / 2,
+      expectedCount = testDataSetSize / 2
     )
 
     testForNonEmptyTopics(
@@ -139,7 +138,7 @@ class KafkaReaderIntegrationTest
       groupId,
       topicInfoList,
       retrievedCount = testDataSetSize,
-      expectedCount = testDataSetSize - testDataSetSize/2
+      expectedCount = testDataSetSize - testDataSetSize / 2
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -163,8 +162,8 @@ class KafkaReaderIntegrationTest
       fixture.kafkaEndpoints,
       groupId,
       topicInfoList,
-      retrievedCount = testDataSetSize/2,
-      expectedCount = testDataSetSize/2
+      retrievedCount = testDataSetSize / 2,
+      expectedCount = testDataSetSize / 2
     )
 
     testForNonEmptyTopics(
@@ -172,7 +171,7 @@ class KafkaReaderIntegrationTest
       groupId,
       topicInfoList,
       retrievedCount = testDataSetSize,
-      expectedCount = testDataSetSize - testDataSetSize/2
+      expectedCount = testDataSetSize - testDataSetSize / 2
     )
 
     testForEmptyTopics(fixture.kafkaEndpoints, groupId, topicInfoList)
@@ -214,7 +213,7 @@ class KafkaReaderIntegrationTest
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
-      countOfMessages = 10
+      countOfMessages = 10 //scalastyle:ignore
     )
 
     testEntities.checkpointInfoProcessor.load()
@@ -229,26 +228,26 @@ class KafkaReaderIntegrationTest
     s"topic$topicNumber"
   }
 
-  private def createSetWithTestData(data: String, count: Int): Set[(String,String)] = (1 to count).map { x =>
+  private def createSetWithTestData(data: String, count: Int): Set[(String, String)] = (1 to count).map { x =>
     data -> s"$data + $x"
   }.toSet
 
-  private def createTestEntities[K,V,T](kafkaEndpoints: String,
-                                        consumerGroupId: String,
-                                        topicInfoList: TopicInfoList,
-                                        countOfMessages: Int): TestEntities[K,V,T] = {
+  private def createTestEntities[K, V, T](kafkaEndpoints: String,
+                                          consumerGroupId: String,
+                                          topicInfoList: TopicInfoList,
+                                          countOfMessages: Int): TestEntities[K, V, T] = {
 
-    val consumer = new Consumer[K,V](Consumer.Settings(kafkaEndpoints, consumerGroupId, pollTimeout))
+    val consumer = Consumer[K, V](Consumer.Settings(kafkaEndpoints, consumerGroupId, pollTimeout))
 
-    val checkpointInfoProcessor = new CheckpointInfoProcessor[K,V,T](
+    val checkpointInfoProcessor = new CheckpointInfoProcessor[K, V, T](
       topicInfoList,
       consumer
     )
 
-    val messageQueue = new MessageQueue[K,V](consumer)
+    val messageQueue = new MessageQueue[K, V](consumer)
 
-    val eventHandler = new MockEventHandler[K,V](messageQueue, countOfMessages)
+    val eventHandler = new MockEventHandler[K, V](messageQueue, countOfMessages)
 
-    TestEntities[K,V,T](consumer, checkpointInfoProcessor, messageQueue, eventHandler)
+    TestEntities[K, V, T](consumer, checkpointInfoProcessor, messageQueue, eventHandler)
   }
 }

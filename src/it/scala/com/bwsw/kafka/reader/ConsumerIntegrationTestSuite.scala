@@ -89,7 +89,7 @@ class ConsumerIntegrationTestSuite extends fixture.FlatSpec
 
     fixture.producer.send(producerRecords)
 
-    val consumer = new Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout))
+    val consumer = Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout))
 
     consumer.assignWithOffsets(incorrectOffsets)
 
@@ -113,7 +113,7 @@ class ConsumerIntegrationTestSuite extends fixture.FlatSpec
 
     fixture.producer.send(producerRecords)
 
-    val consumer = new Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout, autoOffsetReset = "latest"))
+    val consumer = Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout, autoOffsetReset = "latest"))
 
     consumer.assignWithOffsets(incorrectOffsets)
 
@@ -136,7 +136,7 @@ class ConsumerIntegrationTestSuite extends fixture.FlatSpec
 
     fixture.producer.send(producerRecords)
 
-    val consumer = new Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout, autoOffsetReset = "none"))
+    val consumer = Consumer[String, String](Consumer.Settings(fixture.kafkaEndpoints, groupId, pollTimeout, autoOffsetReset = "none"))
 
     consumer.assignWithOffsets(incorrectOffsets)
 

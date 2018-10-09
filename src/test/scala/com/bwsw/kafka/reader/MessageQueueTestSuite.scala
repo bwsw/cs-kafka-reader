@@ -40,15 +40,16 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
     val partition = 0
     val topicPartition = new TopicPartition(topic, partition)
 
-    val offsets = List(0,1,2,3,4,5)
+    val offsets = List(0, 1, 2, 3, 4, 5) //scalastyle:off
     val data = "data"
     val records = offsets.map { offset =>
       new ConsumerRecord[String, String](topic, partition, offset, "key", data)
     }
 
-    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
-      override protected val consumer: MockConsumer[String, String] = new MockConsumer[String, String](OffsetResetStrategy.EARLIEST)
-
+    val testConsumer = new Consumer[String, String](
+      new MockConsumer[String, String](OffsetResetStrategy.EARLIEST),
+      Consumer.Settings("127.0.0.1:9000", "groupId")
+    ) {
       override def poll(): ConsumerRecords[String, String] = {
         new ConsumerRecords[String, String](Map(topicPartition -> records.asJava).asJava)
       }
@@ -56,7 +57,7 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
 
     val messageQueue = new MessageQueue[String, String](testConsumer)
 
-    val messageClass = classOf[MessageQueue[String,String]]
+    val messageClass = classOf[MessageQueue[String, String]]
 
     val buffer = messageClass.getDeclaredField("buffer")
     buffer.setAccessible(true)
@@ -80,7 +81,7 @@ class MessageQueueTestSuite extends fixture.FlatSpec {
   }
 
   "fill" should "retrieve a list of ConsumerRecords, convert each of them to InputEnvelope and put to a buffer" in { fixture =>
-    val messageClass = classOf[MessageQueue[String,String]]
+    val messageClass = classOf[MessageQueue[String, String]]
 
     val fill = messageClass.getDeclaredMethod("fill")
     fill.setAccessible(true)
