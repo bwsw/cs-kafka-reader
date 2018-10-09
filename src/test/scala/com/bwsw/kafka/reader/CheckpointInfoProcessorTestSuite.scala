@@ -25,6 +25,7 @@ import org.scalatest.{Matchers, Outcome, fixture}
 import scala.util.{Failure, Success, Try}
 
 class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
+
   case class FixtureParam(mockConsumer: MockConsumer[String, String],
                           topicInfoList: TopicInfoList,
                           topicPartitionInfoList: TopicPartitionInfoList)
@@ -62,11 +63,12 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
     }
   }
 
-  "save" should  "transform OutputEnvelope entities to TopicPartitionInfoList and then use it to commit consumer offsets" in { fixture =>
+  "save" should "transform OutputEnvelope entities to TopicPartitionInfoList and then use it to commit consumer offsets" in { fixture =>
     var isExecuted = false
-    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
-      override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
-
+    val testConsumer = new Consumer[String, String](
+      fixture.mockConsumer,
+      Consumer.Settings("127.0.0.1:9000", "groupId")
+    ) {
       override def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
         isExecuted = true
         val expectedTopicPartitions = fixture.topicPartitionInfoList.entities.map {
@@ -87,9 +89,10 @@ class CheckpointInfoProcessorTestSuite extends fixture.FlatSpec with Matchers {
 
   "load" should "invoke the consumer 'assign' method" in { fixture =>
     var isExecuted = false
-    val testConsumer = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
-      override protected val consumer: MockConsumer[String, String] = fixture.mockConsumer
-
+    val testConsumer = new Consumer[String, String](
+      fixture.mockConsumer,
+      Consumer.Settings("127.0.0.1:9000", "groupId")
+    ) {
       override def assign(topicInfoList: TopicInfoList): Unit = {
         isExecuted = true
         assert(fixture.topicInfoList == topicInfoList)

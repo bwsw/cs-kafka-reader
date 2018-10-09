@@ -65,9 +65,10 @@ class ConsumerTestSuite
   def withFixture(test: OneArgTest): Outcome = {
     val mockConsumer = new MockConsumer[String, String](OffsetResetStrategy.EARLIEST)
 
-    val testConsumer: Consumer[String, String] = new Consumer[String, String](Consumer.Settings("127.0.0.1:9000", "groupId")) {
-      override protected val consumer: MockConsumer[String, String] = mockConsumer
-
+    val testConsumer: Consumer[String, String] = new Consumer[String, String](
+      mockConsumer,
+      Consumer.Settings("127.0.0.1:9000", "groupId")
+    ) {
       override def convertToTopicPartition(topicInfoList: TopicInfoList): List[TopicPartition] = {
         super.convertToTopicPartition(topicInfoList)
       }
