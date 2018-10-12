@@ -19,7 +19,7 @@
 package com.bwsw.kafka.reader
 
 import com.bwsw.kafka.reader.entities.{OutputEnvelope, TopicInfoList, TopicPartitionInfo, TopicPartitionInfoList}
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
 
 /**
   * Class is responsible for saving and loading checkpoint data for Kafka
@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory
   * @tparam T type of output data which is stored in [[com.bwsw.kafka.reader.entities.OutputEnvelope[T] ]]
   */
 class CheckpointInfoProcessor[K,V,T](topicInfoList: TopicInfoList, consumer: Consumer[K,V]) {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = Logger(getClass)
   /**
     * Saves checkpoint data with help of embedded tools of Kafka
     *

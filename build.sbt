@@ -28,6 +28,7 @@ lazy val kafkaReader = (project in file("."))
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.3.0",
       "org.slf4j" % "slf4j-api" % "1.7.25",
+      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
       ("org.apache.kafka" % "kafka_2.12" % "0.10.2.1").exclude("org.slf4j", "slf4j-api"),
       "org.scalatest" %% "scalatest" % "3.0.1" % "it,test",
       "net.manub" %% "scalatest-embedded-kafka" % "1.1.1" % "it,test",
@@ -42,7 +43,7 @@ lazy val kafkaReader = (project in file("."))
       if (isSnapshot.value) {
         Some("snapshots" at nexus + "content/repositories/snapshots")
       } else {
-        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+        Some("releases" at nexus + "service/local/staging/deploy/maven2")
       }
     },
     scmInfo := Some(
@@ -53,10 +54,10 @@ lazy val kafkaReader = (project in file("."))
     ),
     developers := List(
       Developer(
-        id    = "bitworks",
-        name  = "Bitworks Software, Ltd.",
+        id = "bitworks",
+        name = "Bitworks Software, Ltd.",
         email = "bitworks@bw-sw.com",
-        url   = url("http://bitworks.software/")
+        url = url("http://bitworks.software/")
       )
     ),
     inConfig(IntegrationTest)(Defaults.itSettings)

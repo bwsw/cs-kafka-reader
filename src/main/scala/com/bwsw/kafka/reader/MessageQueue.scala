@@ -19,7 +19,7 @@
 package com.bwsw.kafka.reader
 
 import com.bwsw.kafka.reader.entities.InputEnvelope
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
@@ -34,7 +34,7 @@ import scala.collection.JavaConverters._
   * @param consumer see [[com.bwsw.kafka.reader.Consumer[K,V] ]]
   */
 class MessageQueue[K,V](consumer: Consumer[K,V]) {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = Logger(getClass)
   private var buffer = new ListBuffer[InputEnvelope[V]]
 
   /**

@@ -24,7 +24,7 @@ import com.bwsw.kafka.reader.entities._
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.Deserializer
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
 
 import scala.collection.JavaConverters._
 
@@ -39,7 +39,7 @@ import scala.collection.JavaConverters._
 class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K, V],
                      settings: Consumer.Settings) {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = Logger(getClass)
 
   /**
     * Assign a list of topic/partition to this consumer and
