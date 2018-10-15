@@ -191,7 +191,7 @@ class KafkaReaderIntegrationTest
     )
 
     testEntities.checkpointInfoProcessor.load()
-
+    testEntities.messageQueue.pollIfNeeded()
 
     val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
 
