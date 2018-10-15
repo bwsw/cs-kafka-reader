@@ -23,13 +23,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.bwsw.kafka.reader.entities.{TopicInfo, TopicInfoList}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.{Outcome, fixture}
+import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.util.{Failure, Success, Try}
 
 
 class KafkaReaderIntegrationTest
   extends fixture.FlatSpec
+    with Matchers
     with EmbeddedKafka {
 
   val groupId = "group1"
@@ -192,6 +193,7 @@ class KafkaReaderIntegrationTest
 
     testEntities.checkpointInfoProcessor.load()
     testEntities.messageQueue.pollIfNeeded()
+    Thread.sleep(pollTimeout)
 
     val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
 
@@ -199,7 +201,7 @@ class KafkaReaderIntegrationTest
       x.data
     }
 
-    assert(actualTestDataList.toSet.size == expectedCount)
+    actualTestDataList should have size expectedCount
 
     testEntities.checkpointInfoProcessor.save(outputEnvelopes)
 
@@ -217,8 +219,10 @@ class KafkaReaderIntegrationTest
     )
 
     testEntities.checkpointInfoProcessor.load()
+    testEntities.messageQueue.pollIfNeeded()
+    Thread.sleep(pollTimeout)
 
-    assert(testEntities.eventHandler.handle(dummyFlag).isEmpty)
+    testEntities.eventHandler.handle(dummyFlag) shouldBe empty
 
     testEntities.consumer.close()
   }
