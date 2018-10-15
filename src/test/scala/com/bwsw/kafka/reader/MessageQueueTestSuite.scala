@@ -70,7 +70,7 @@ class MessageQueueTestSuite
     when(consumer.poll())
       .thenReturn(batches.head, batches(1))
       .thenAnswer({ _ =>
-        Thread.sleep(shortTimeout)
+        Thread.sleep(shortTimeout * 2)
         batches(2)
       })
       .thenAnswer({ _ =>
