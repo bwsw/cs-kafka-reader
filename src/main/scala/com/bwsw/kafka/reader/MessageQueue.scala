@@ -146,7 +146,7 @@ class MessageQueue[K, V](consumer: Consumer[K, V],
    */
   private def ensureNotShutdown(): Unit = {
     if (isShutdown.get()) {
-      throw new IllegalStateException("This message has already been shutdown")
+      throw new IllegalStateException("MessageQueue has already been shutdown")
     }
   }
 }
