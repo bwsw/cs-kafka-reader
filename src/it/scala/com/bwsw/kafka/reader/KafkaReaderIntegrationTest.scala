@@ -244,7 +244,7 @@ class KafkaReaderIntegrationTest
       consumer
     )
 
-    val messageQueue = new MessageQueue[K, V](consumer)
+    val messageQueue = new MessageQueue[K, V](consumer, countOfMessages)
 
     val eventHandler = new MockEventHandler[K, V](messageQueue, countOfMessages)
 

@@ -18,110 +18,199 @@
 */
 package com.bwsw.kafka.reader
 
-import java.lang.reflect.Field
-
 import com.bwsw.kafka.reader.entities.InputEnvelope
-import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords, MockConsumer, OffsetResetStrategy}
+import org.apache.kafka.clients.consumer.{ConsumerRecord, ConsumerRecords}
 import org.apache.kafka.common.TopicPartition
-import org.scalatest.{Outcome, fixture}
+import org.mockito.Mockito
+import org.mockito.Mockito._
+import org.scalatest._
+import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
-import scala.util.{Failure, Success, Try}
 
-class MessageQueueTestSuite extends fixture.FlatSpec {
+class MessageQueueTestSuite
+  extends fixture.FlatSpec
+    with Matchers
+    with MockitoSugar {
 
-  case class FixtureParam(messageQueue: MessageQueue[String, String],
-                          expectedInputEnvelopes: List[InputEnvelope[String]],
-                          buffer: Field)
+  final case class FixtureParam(consumer: Consumer[String, String],
+                                messageQueue: MessageQueue[String, String])
 
-  def withFixture(test: OneArgTest): Outcome = {
-    val topic = "topic1"
-    val partition = 0
-    val topicPartition = new TopicPartition(topic, partition)
+  private val topic = "topic1"
+  private val partition = 0
+  private val topicPartition = new TopicPartition(topic, partition)
+  private val minMessagesCount = 3
+  private val pollTimeout: Long = 500
+  private val shortTimeout: Long = 100
+  private val longTimeout: Long = 1000
 
-    val offsets = List(0, 1, 2, 3, 4, 5) //scalastyle:off
-    val data = "data"
-    val records = offsets.map { offset =>
-      new ConsumerRecord[String, String](topic, partition, offset, "key", data)
+  private val offsetsCount = 10
+  private val records = (0 until offsetsCount).map { offset =>
+    new ConsumerRecord[String, String](topic, partition, offset, s"key-$offset", s"value-$offset")
+  }
+  private val envelopes = (0 until offsetsCount).map { offset =>
+    InputEnvelope(topic, partition, offset, s"value-$offset")
+  }
+  private val batches = records.grouped(2).toSeq.map { batch =>
+    new ConsumerRecords[String, String](
+      Map(topicPartition -> batch.asJava).asJava
+    )
+  }
+
+  private val consumerSettings = Consumer.Settings(
+    brokers = "brokers",
+    groupId = "groupId",
+    pollTimeout = pollTimeout.toInt
+  )
+
+  override def withFixture(test: OneArgTest): Outcome = {
+    val consumer = mock[Consumer[String, String]]
+    when(consumer.settings).thenReturn(consumerSettings)
+    when(consumer.poll())
+      .thenReturn(batches.head, batches(1))
+      .thenAnswer({ _ =>
+        Thread.sleep(shortTimeout)
+        batches(2)
+      })
+      .thenAnswer({ _ =>
+        Thread.sleep(longTimeout)
+        batches(3)
+      })
+
+    val messageQueue = new MessageQueue(consumer, minMessagesCount)
+    val fixture = FixtureParam(consumer, messageQueue)
+    messageQueue.pollIfNeeded()
+
+    test(fixture)
+  }
+
+
+  "MessageQueue" should "poll messages until queue.size >= minMessagesCount" in { fixture =>
+    import fixture._
+
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+  }
+
+  it should "poll messages if queue.size < minMessagesCount" in { fixture =>
+    import fixture._
+
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+
+    messageQueue.takeOne() shouldBe Some(envelopes.head)
+    messageQueue.takeOne() shouldBe Some(envelopes(1))
+
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(3)).poll()
+
+    messageQueue.take(10) should contain theSameElementsInOrderAs envelopes.slice(2, 4) //scalastyle:ignore
+
+    Thread.sleep(longTimeout)
+    verify(consumer, Mockito.atLeast(4)).poll() //scalastyle:ignore
+  }
+
+
+  "takeOne" should "return message immediately if queue isn't empty" in { fixture =>
+    import fixture._
+
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+
+    fasterThan(shortTimeout) {
+      messageQueue.takeOne() shouldBe Some(envelopes.head)
+    }
+  }
+
+  it should "wait 'pollTimeout' milliseconds if queue is empty" in { fixture =>
+    import fixture._
+
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+
+    fasterThan(shortTimeout) {
+      messageQueue.takeOne() shouldBe Some(envelopes.head)
+      messageQueue.takeOne() shouldBe Some(envelopes(1))
+      messageQueue.takeOne() shouldBe Some(envelopes(2))
+      messageQueue.takeOne() shouldBe Some(envelopes(3))
     }
 
-    val testConsumer = new Consumer[String, String](
-      new MockConsumer[String, String](OffsetResetStrategy.EARLIEST),
-      Consumer.Settings("127.0.0.1:9000", "groupId")
-    ) {
-      override def poll(): ConsumerRecords[String, String] = {
-        new ConsumerRecords[String, String](Map(topicPartition -> records.asJava).asJava)
-      }
+    fasterThan(pollTimeout) {
+      messageQueue.takeOne() shouldBe Some(envelopes(4)) //scalastyle:ignore
+      messageQueue.takeOne() shouldBe Some(envelopes(5)) //scalastyle:ignore
     }
 
-    val messageQueue = new MessageQueue[String, String](testConsumer)
-
-    val messageClass = classOf[MessageQueue[String, String]]
-
-    val buffer = messageClass.getDeclaredField("buffer")
-    buffer.setAccessible(true)
-
-    val expectedInputEnvelopes = records.map { record =>
-      new InputEnvelope[String](record.topic(), record.partition(), record.offset(), data)
+    notFasterThan(pollTimeout) {
+      messageQueue.takeOne() shouldBe empty
     }
 
-    val theFixture = FixtureParam(messageQueue, expectedInputEnvelopes, buffer)
+    Thread.sleep(longTimeout - pollTimeout)
+    verify(consumer, Mockito.atLeast(3)).poll()
 
-    Try {
-      withFixture(test.toNoArgTest(theFixture))
-    } match {
-      case Success(x) =>
-        Try(testConsumer.close())
-        x
-      case Failure(e: Throwable) =>
-        testConsumer.close()
-        throw e
+    fasterThan(shortTimeout) {
+      messageQueue.takeOne() shouldBe Some(envelopes(6)) //scalastyle:ignore
     }
   }
 
-  "fill" should "retrieve a list of ConsumerRecords, convert each of them to InputEnvelope and put to a buffer" in { fixture =>
-    val messageClass = classOf[MessageQueue[String, String]]
 
-    val fill = messageClass.getDeclaredMethod("fill")
-    fill.setAccessible(true)
-    fill.invoke(fixture.messageQueue)
+  "take(n)" should "return required amount of messages immediately if queue.size >= n" in { fixture =>
+    import fixture._
 
-    val actualInputEnvelopes = fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[InputEnvelope[String]]].toList
-
-    assert(actualInputEnvelopes == fixture.expectedInputEnvelopes)
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+    fasterThan(shortTimeout) {
+      messageQueue.take(2) should contain theSameElementsInOrderAs envelopes.take(2)
+    }
   }
 
-  "take" should "return an empty list if 0 messages are requested" in { fixture =>
-    val size = 0
+  it should "return all messages immediately if queue isn't empty and queue.size < n" in { fixture =>
+    import fixture._
 
-    assert(fixture.messageQueue.take(size) == List())
-    assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].isEmpty)
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+    fasterThan(shortTimeout) {
+      messageQueue.take(10) should contain theSameElementsInOrderAs envelopes.take(4) //scalastyle:ignore
+    }
   }
 
-  "take" should "return the specified number of InputEnvelopes retrieved from buffer if buffer has enough entities" in { fixture =>
-    val size = fixture.expectedInputEnvelopes.size
-    fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]] ++= fixture.expectedInputEnvelopes)
+  it should "wait 'pollTimeout' milliseconds if queue is empty" in { fixture =>
+    import fixture._
 
-    assert(fixture.expectedInputEnvelopes.take(size - 1) == fixture.messageQueue.take(size - 1))
-    assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].size == 1)
+    Thread.sleep(shortTimeout)
+    verify(consumer, times(2)).poll()
+    fasterThan(shortTimeout) {
+      messageQueue.take(10) should contain theSameElementsInOrderAs envelopes.take(4) //scalastyle:ignore
+    }
+
+    fasterThan(pollTimeout) {
+      messageQueue.take(1) should contain only envelopes(4) //scalastyle:ignore
+      messageQueue.take(10) should contain only envelopes(5) //scalastyle:ignore
+    }
+
+    notFasterThan(pollTimeout) {
+      messageQueue.take(10) shouldBe empty //scalastyle:ignore
+    }
+
+    Thread.sleep(longTimeout - pollTimeout)
+    verify(consumer, Mockito.atLeast(3)).poll()
+
+    fasterThan(shortTimeout) {
+      messageQueue.take(2) should contain theSameElementsInOrderAs envelopes.slice(6, 8) //scalastyle:ignore
+    }
   }
 
-  "take" should "return specified number of InputEnvelopes retrieved from buffer " +
-    "if buffer has enough entities after fill() method execution" in { fixture =>
-    val size = fixture.expectedInputEnvelopes.size
-    fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]])
 
-    assert(fixture.expectedInputEnvelopes.take(size - 1) == fixture.messageQueue.take(size - 1))
-    assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].size == 1)
+  private def fasterThan(timeLimit: Long)(f: => Unit) = {
+    measureTime(f) should be < timeLimit
   }
 
-  "take" should "return all available InputEnvelopes retrieved from buffer " +
-    "if buffer does not have enough entities after fill() method execution" in { fixture =>
-    val size = fixture.expectedInputEnvelopes.size
-    fixture.buffer.set(fixture.messageQueue, new ListBuffer[InputEnvelope[String]])
+  private def notFasterThan(timeLimit: Long)(f: => Unit) = {
+    measureTime(f) should be >= timeLimit
+  }
 
-    assert(fixture.expectedInputEnvelopes.take(size) == fixture.messageQueue.take(size + 1))
-    assert(fixture.buffer.get(fixture.messageQueue).asInstanceOf[ListBuffer[String]].isEmpty)
+  private def measureTime(f: => Unit) = {
+    val timestamp = System.currentTimeMillis()
+    f
+    System.currentTimeMillis() - timestamp
   }
 }
