@@ -27,6 +27,7 @@ import org.scalatest._
 import org.scalatest.mockito.MockitoSugar
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 class MessageQueueTestSuite
   extends fixture.FlatSpec
@@ -79,9 +80,14 @@ class MessageQueueTestSuite
 
     val messageQueue = new MessageQueue(consumer, minMessagesCount)
     val fixture = FixtureParam(consumer, messageQueue)
-    messageQueue.pollIfNeeded()
+    messageQueue.start()
 
-    test(fixture)
+    val result = Try {
+      test(fixture)
+    }
+    messageQueue.shutdown()
+
+    result.get
   }
 
 
@@ -152,6 +158,15 @@ class MessageQueueTestSuite
     }
   }
 
+  it should "throw an exception if queue has already been shutdown" in { fixture =>
+    import fixture._
+
+    messageQueue.shutdown()
+    an[IllegalStateException] shouldBe thrownBy {
+      messageQueue.takeOne()
+    }
+  }
+
 
   "take(n)" should "return required amount of messages immediately if queue.size >= n" in { fixture =>
     import fixture._
@@ -196,6 +211,15 @@ class MessageQueueTestSuite
 
     fasterThan(shortTimeout) {
       messageQueue.take(2) should contain theSameElementsInOrderAs envelopes.slice(6, 8) //scalastyle:ignore
+    }
+  }
+
+  it should "throw an exception if queue has already been shutdown" in { fixture =>
+    import fixture._
+
+    messageQueue.shutdown()
+    an[IllegalStateException] shouldBe thrownBy {
+      messageQueue.take(3)
     }
   }
 

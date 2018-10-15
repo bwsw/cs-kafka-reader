@@ -184,47 +184,35 @@ class KafkaReaderIntegrationTest
                                     retrievedCount: Int,
                                     expectedCount: Int): Unit = {
 
-    val testEntities = createTestEntities[String, String, String](
+    withTestEntities(
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       retrievedCount
-    )
+    ) { testEntities =>
+      val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
 
-    testEntities.checkpointInfoProcessor.load()
-    testEntities.messageQueue.pollIfNeeded()
-    Thread.sleep(pollTimeout)
+      val actualTestDataList = outputEnvelopes.map { x =>
+        x.data
+      }
 
-    val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
+      actualTestDataList should have size expectedCount
 
-    val actualTestDataList = outputEnvelopes.map { x =>
-      x.data
+      testEntities.checkpointInfoProcessor.save(outputEnvelopes)
     }
-
-    actualTestDataList should have size expectedCount
-
-    testEntities.checkpointInfoProcessor.save(outputEnvelopes)
-
-    testEntities.consumer.close()
   }
 
   private def testForEmptyTopics(kafkaEndpoints: String,
                                  consumerGroupId: String,
                                  topicInfoList: TopicInfoList): Unit = {
-    val testEntities = createTestEntities[String, String, String](
+    withTestEntities(
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       countOfMessages = 10 //scalastyle:ignore
-    )
-
-    testEntities.checkpointInfoProcessor.load()
-    testEntities.messageQueue.pollIfNeeded()
-    Thread.sleep(pollTimeout)
-
-    testEntities.eventHandler.handle(dummyFlag) shouldBe empty
-
-    testEntities.consumer.close()
+    ) { testEntities =>
+      testEntities.eventHandler.handle(dummyFlag) shouldBe empty
+    }
   }
 
   private def getNextTopic: String = {
@@ -253,5 +241,30 @@ class KafkaReaderIntegrationTest
     val eventHandler = new MockEventHandler[K, V](messageQueue, countOfMessages)
 
     TestEntities[K, V, T](consumer, checkpointInfoProcessor, messageQueue, eventHandler)
+  }
+
+  private def withTestEntities[T](kafkaEndpoints: String,
+                                  consumerGroupId: String,
+                                  topicInfoList: TopicInfoList,
+                                  countOfMessages: Int)
+                                 (test: TestEntities[String, String, String] => T) = {
+    val testEntities = createTestEntities[String, String, String](
+      kafkaEndpoints,
+      consumerGroupId,
+      topicInfoList,
+      countOfMessages
+    )
+    testEntities.checkpointInfoProcessor.load()
+    testEntities.messageQueue.start()
+    Thread.sleep(pollTimeout)
+
+    val testResult = Try {
+      test(testEntities)
+    }
+
+    testEntities.messageQueue.shutdown()
+    testEntities.consumer.close()
+
+    testResult.get
   }
 }
