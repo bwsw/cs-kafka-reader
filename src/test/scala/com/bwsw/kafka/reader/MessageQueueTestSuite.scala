@@ -41,9 +41,9 @@ class MessageQueueTestSuite
   private val partition = 0
   private val topicPartition = new TopicPartition(topic, partition)
   private val minMessagesCount = 3
-  private val pollTimeout: Long = 500
+  private val pollTimeout: Long = 1000
   private val shortTimeout: Long = 100
-  private val longTimeout: Long = 1000
+  private val longTimeout: Long = 2500
 
   private val offsetsCount = 10
   private val records = (0 until offsetsCount).map { offset =>
