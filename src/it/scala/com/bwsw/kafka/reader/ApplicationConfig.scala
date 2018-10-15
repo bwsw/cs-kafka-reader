@@ -19,12 +19,12 @@
 package com.bwsw.kafka.reader
 
 import com.typesafe.config.{Config, ConfigException, ConfigFactory}
-import org.slf4j.LoggerFactory
+import com.typesafe.scalalogging.Logger
 
 import scala.util.Try
 
 object ApplicationConfig {
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = Logger(getClass)
 
   /**
     * Application config object.

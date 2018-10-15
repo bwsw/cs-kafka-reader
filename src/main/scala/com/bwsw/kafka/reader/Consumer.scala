@@ -21,10 +21,10 @@ package com.bwsw.kafka.reader
 import java.util.Properties
 
 import com.bwsw.kafka.reader.entities._
+import com.typesafe.scalalogging.Logger
 import org.apache.kafka.clients.consumer.{ConsumerConfig, ConsumerRecords, KafkaConsumer, OffsetAndMetadata}
 import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.serialization.Deserializer
-import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
@@ -37,9 +37,9 @@ import scala.collection.JavaConverters._
   * @param settings settings for Kafka Consumer
   */
 class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K, V],
-                     settings: Consumer.Settings) {
+                     val settings: Consumer.Settings) {
 
-  private val logger = LoggerFactory.getLogger(this.getClass)
+  private val logger = Logger(getClass)
 
   /**
     * Assign a list of topic/partition to this consumer and
@@ -63,7 +63,7 @@ class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K
     *
     * @param offsets contains pairs (topic, partition) with offsets
     */
-  def assignWithOffsets(offsets: Map[TopicWithPartition, Offset]): Unit = {
+  def assignWithOffsets(offsets: Map[TopicWithPartition, Offset]): Unit = synchronized {
     logger.trace(s"assignWithOffsets(offsets: $offsets)")
     val topicPartitionsWithOffsets = offsets.map {
       case (topicPartition, offset) =>
@@ -89,7 +89,7 @@ class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K
     * @param topicInfoList entity which contains topics
     * @throws NoSuchElementException if no one of topics exists in Kafka
     */
-  def assign(topicInfoList: TopicInfoList): Unit = {
+  def assign(topicInfoList: TopicInfoList): Unit = synchronized {
     logger.trace(s"topicInfoList: $topicInfoList")
     val topicPartitions = convertToTopicPartition(topicInfoList)
     if (topicPartitions.nonEmpty) {
@@ -113,7 +113,7 @@ class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K
   /**
     * @see [[org.apache.kafka.clients.consumer.KafkaConsumer#poll(timeout: Long)]]
     */
-  def poll(): ConsumerRecords[K, V] = {
+  def poll(): ConsumerRecords[K, V] = synchronized {
     logger.trace("poll()")
     kafkaConsumer.poll(settings.pollTimeout)
   }
@@ -121,7 +121,7 @@ class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K
   /**
     * Commit the specified offsets for the specified list of topics and partitions.
     */
-  def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = {
+  def commit(topicPartitionInfoList: TopicPartitionInfoList): Unit = synchronized {
     logger.trace(s"commit(topicPartitionInfoList: $topicPartitionInfoList)")
     val topicPartitionsWithMetadata = topicPartitionInfoList.entities.map { topicPartitionInfo =>
       new TopicPartition(topicPartitionInfo.topic, topicPartitionInfo.partition) -> new OffsetAndMetadata(topicPartitionInfo.offset, "")
@@ -133,7 +133,7 @@ class Consumer[K, V](kafkaConsumer: org.apache.kafka.clients.consumer.Consumer[K
   /**
     * Close the consumer
     */
-  def close(): Unit = {
+  def close(): Unit = synchronized {
     logger.trace("close()")
     kafkaConsumer.close()
   }

@@ -23,13 +23,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import com.bwsw.kafka.reader.entities.{TopicInfo, TopicInfoList}
 import net.manub.embeddedkafka.{EmbeddedKafka, EmbeddedKafkaConfig}
 import org.apache.kafka.clients.producer.ProducerRecord
-import org.scalatest.{Outcome, fixture}
+import org.scalatest.{Matchers, Outcome, fixture}
 
 import scala.util.{Failure, Success, Try}
 
 
 class KafkaReaderIntegrationTest
   extends fixture.FlatSpec
+    with Matchers
     with EmbeddedKafka {
 
   val groupId = "group1"
@@ -183,44 +184,35 @@ class KafkaReaderIntegrationTest
                                     retrievedCount: Int,
                                     expectedCount: Int): Unit = {
 
-    val testEntities = createTestEntities[String, String, String](
+    withTestEntities(
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       retrievedCount
-    )
+    ) { testEntities =>
+      val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
 
-    testEntities.checkpointInfoProcessor.load()
+      val actualTestDataList = outputEnvelopes.map { x =>
+        x.data
+      }
 
+      actualTestDataList should have size expectedCount
 
-    val outputEnvelopes = testEntities.eventHandler.handle(dummyFlag)
-
-    val actualTestDataList = outputEnvelopes.map { x =>
-      x.data
+      testEntities.checkpointInfoProcessor.save(outputEnvelopes)
     }
-
-    assert(actualTestDataList.toSet.size == expectedCount)
-
-    testEntities.checkpointInfoProcessor.save(outputEnvelopes)
-
-    testEntities.consumer.close()
   }
 
   private def testForEmptyTopics(kafkaEndpoints: String,
                                  consumerGroupId: String,
                                  topicInfoList: TopicInfoList): Unit = {
-    val testEntities = createTestEntities[String, String, String](
+    withTestEntities(
       kafkaEndpoints,
       consumerGroupId,
       topicInfoList,
       countOfMessages = 10 //scalastyle:ignore
-    )
-
-    testEntities.checkpointInfoProcessor.load()
-
-    assert(testEntities.eventHandler.handle(dummyFlag).isEmpty)
-
-    testEntities.consumer.close()
+    ) { testEntities =>
+      testEntities.eventHandler.handle(dummyFlag) shouldBe empty
+    }
   }
 
   private def getNextTopic: String = {
@@ -244,10 +236,35 @@ class KafkaReaderIntegrationTest
       consumer
     )
 
-    val messageQueue = new MessageQueue[K, V](consumer)
+    val messageQueue = new MessageQueue[K, V](consumer, countOfMessages)
 
     val eventHandler = new MockEventHandler[K, V](messageQueue, countOfMessages)
 
     TestEntities[K, V, T](consumer, checkpointInfoProcessor, messageQueue, eventHandler)
+  }
+
+  private def withTestEntities[T](kafkaEndpoints: String,
+                                  consumerGroupId: String,
+                                  topicInfoList: TopicInfoList,
+                                  countOfMessages: Int)
+                                 (test: TestEntities[String, String, String] => T) = {
+    val testEntities = createTestEntities[String, String, String](
+      kafkaEndpoints,
+      consumerGroupId,
+      topicInfoList,
+      countOfMessages
+    )
+    testEntities.checkpointInfoProcessor.load()
+    testEntities.messageQueue.start()
+    Thread.sleep(pollTimeout)
+
+    val testResult = Try {
+      test(testEntities)
+    }
+
+    testEntities.messageQueue.shutdown()
+    testEntities.consumer.close()
+
+    testResult.get
   }
 }

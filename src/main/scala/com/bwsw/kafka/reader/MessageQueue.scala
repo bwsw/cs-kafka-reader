@@ -18,64 +18,135 @@
 */
 package com.bwsw.kafka.reader
 
-import com.bwsw.kafka.reader.entities.InputEnvelope
-import org.slf4j.LoggerFactory
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
 
-import scala.collection.mutable.ListBuffer
+import com.bwsw.kafka.reader.entities.InputEnvelope
+import com.typesafe.scalalogging.Logger
+
 import scala.collection.JavaConverters._
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService, Future}
 
 /**
   * Class is an intermediate buffer of Kafka events used to decrease a count of requests to Kafka
   * if there is a need to retrieve a small number of messages, e.g. one.
-  * Class retrieves a list of ConsumerRecords and convert each of them to InputEnvelope
+  * Class retrieves a list of ConsumerRecords and convert each of them to InputEnvelope.
+  * This class automatically poll messages from Kafka if it doesn't contain enough messages.
+  * Autopolling starts after calling one of methods: `start()`, `takeOne()` or `take(n)`.
   *
   * @tparam K type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] key
   * @tparam V type of [[org.apache.kafka.clients.consumer.ConsumerRecord]] value
-  * @param consumer see [[com.bwsw.kafka.reader.Consumer[K,V] ]]
+  * @param consumer    see [[com.bwsw.kafka.reader.Consumer[K,V] ]]
+  * @param minMessages queue automatically poll messages if it contains messages less than this number
   */
-class MessageQueue[K,V](consumer: Consumer[K,V]) {
-  private val logger = LoggerFactory.getLogger(this.getClass)
-  private var buffer = new ListBuffer[InputEnvelope[V]]
+class MessageQueue[K, V](consumer: Consumer[K, V],
+                         minMessages: Int = 1) {
+
+  import consumer.settings.pollTimeout
+
+  private val logger = Logger(getClass)
+  private val buffer = new LinkedBlockingQueue[InputEnvelope[V]]
+  private val isBusy = new AtomicBoolean(false)
+  private val isShutdown = new AtomicBoolean(false)
+
+  implicit private val executionContext: ExecutionContextExecutorService =
+    ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+
 
   /**
-    * Retrieves 'n' InputEnvelope from the buffer,
-    * if buffer does not have enough entities, it tries to retrieve the available data from the consumer
-    *
-    * @param n count of InputEnvelope entities to extract
+    * Retrieves and removes first element of the queue.
+    * If queue is empty, it waits up to the `consumer.settings.pollTimeout` milliseconds
+    * for an element to become available
     */
-  def take(n: Int): List[InputEnvelope[V]] = {
-    logger.trace(s"take(n: $n)")
-    if (buffer.size < n) {
-      logger.debug("Count of entities in buffer is not enough, new entities will be retrieved from Kafka")
-      fill()
-    }
+  def takeOne(): Option[InputEnvelope[V]] = {
+    ensureNotShutdown()
+    logger.trace("takeOne()")
+    val maybeEnvelope = Option(buffer.poll(pollTimeout, TimeUnit.MILLISECONDS))
+    pollIfNeeded()
 
-    val sizeAfterFill = buffer.size
-    logger.debug(s"Count of entities in buffer after retrieving from Kafka is: $sizeAfterFill")
-
-    val envelopes = if (sizeAfterFill < n) {
-      buffer.take(sizeAfterFill)
-    } else {
-      buffer.take(n)
-    }
-    logger.debug(s"The following entities: $envelopes will be returned")
-
-    buffer.remove(0, envelopes.size)
-    envelopes.toList
+    maybeEnvelope
   }
 
   /**
-    * Retrieves a list of ConsumerRecords, convert each of them to InputEnvelope and put to a buffer
+    * Retrieves and removes first `n` elements of the queue.
+    * If queue is empty, it waits up to the `consumer.settings.pollTimeout` milliseconds
+    * for an element to become available
+    *
+    * @param n count of elements to extract
     */
-  private def fill(): Unit = {
-    logger.trace("fill()")
-    
-    val records = consumer.poll().asScala
-    logger.debug(s"Record: $records retrieved from Kafka")
+  def take(n: Int): List[InputEnvelope[V]] = {
+    ensureNotShutdown()
+    logger.trace(s"take(n: $n)")
 
-    val envelopes = records.map { record =>
-      new InputEnvelope[V](record.topic(), record.partition(), record.offset(), record.value())
-    }.toList
-    buffer ++= envelopes
+    val javaList = new java.util.LinkedList[InputEnvelope[V]]
+    buffer.drainTo(javaList, n)
+
+    if (javaList.isEmpty) {
+      Option(buffer.poll(pollTimeout, TimeUnit.MILLISECONDS)) match {
+        case Some(x) =>
+          buffer.drainTo(javaList, n - 1)
+          javaList.addFirst(x)
+        case None =>
+      }
+    }
+    pollIfNeeded()
+
+    javaList.asScala.toList
+  }
+
+  /**
+    * Start autopolling
+    */
+  def start(): Unit = {
+    ensureNotShutdown()
+    pollIfNeeded()
+  }
+
+  /**
+    * Shutdown message queue and free resources
+    */
+  def shutdown(): Unit = {
+    if (!isShutdown.getAndSet(true)) {
+      executionContext.shutdown()
+    }
+  }
+
+  /**
+    * Poll messages from Kafka if the queue doesn't contain enough elements
+    */
+  private def pollIfNeeded(): Unit = {
+    if (buffer.size() < minMessages) {
+      if (!isBusy.getAndSet(true)) {
+        Future(fill())
+      }
+    }
+  }
+
+
+  private def fill(): Unit = {
+    if (buffer.size() < minMessages && !isShutdown.get()) {
+      logger.trace("fill()")
+
+      val records = consumer.poll().asScala
+      logger.debug(s"Record: $records retrieved from Kafka")
+
+      val envelopes = records.map { record =>
+        new InputEnvelope[V](record.topic(), record.partition(), record.offset(), record.value())
+      }
+      buffer.addAll(envelopes.asJavaCollection)
+
+      fill()
+    } else {
+      isBusy.set(false)
+    }
+  }
+
+  /*
+   * Check that the consumer hasn't been shutdown.
+   */
+  private def ensureNotShutdown(): Unit = {
+    if (isShutdown.get()) {
+      throw new IllegalStateException("MessageQueue has already been shutdown")
+    }
   }
 }
